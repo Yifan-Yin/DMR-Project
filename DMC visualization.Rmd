@@ -1,0 +1,101 @@
+---
+title: "DMC Visualization"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#setup
+
+```{r}
+library(pheatmap)
+library(bumphunter)
+library(XML)
+library(xlsx)  
+library(readxl)
+library(stringr)
+library(yahew)  # library(devtools); install_github('wvictor14/yahew')
+library(minfi) # for loading methyldation data
+library(dplyr)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19) # for cpg info
+library(IlluminaHumanMethylation450kmanifest)
+library(kableExtra)
+library(ggplot2)
+library(ggpubr)
+library(fdrtool)
+```
+
+#data setup
+```{r}
+#read DMC values from all tests
+DMC_alltest <- readRDS('C:\\Users\\lenovo\\Desktop\\summer\\2_2_Term_DMCs_alltests.rds')
+#read processed DMC values
+data <- read_xlsx('C:\\Users\\lenovo\\Desktop\\summer\\2_2_Term_DMCs.xlsx')
+#read beta values from all tests
+beta <- readRDS('C:\\Users\\lenovo\\Desktop\\summer\\2_2_betas_term.rds')
+#pull out beta values from DM cpg sites
+beta <- as.data.frame(beta)
+beta_DMC <- beta[rownames(beta)%in% data$cpg,]
+#check if the samples are the same
+all(data$cpg%in% rownames(beta_DMC))
+all(rownames(beta_DMC)%in% data$cpg)
+```
+
+#boxplot
+```{r}
+#pull out beta values based on cell types
+beta_troph <- t(beta[, grepl('troph', colnames(beta))])
+beta_endo <- t(beta[, grepl('endo', colnames(beta))])
+beta_hofb <- t(beta[, grepl('hofb', colnames(beta))])
+beta_strom <- t(beta[, grepl('strom', colnames(beta))])
+cpgname <- data$cpg
+#a function that shows boxplot containing beta values of a cpg site
+boxplot_beta <- function(cpg_name){
+for (cpg in cpg_name) { 
+#pull out beta values based on cell types
+##troph
+cpg_troph <- as.data.frame(beta_troph[,cpg])
+colnames(cpg_troph) <- 'Beta'
+cell_types <- rep('troph', nrow(cpg_troph))
+cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
+rownames(cpg_troph) <- rownames(beta_troph)
+##endo
+cpg_endo <- as.data.frame(beta_endo[,cpg])
+colnames(cpg_endo) <- 'Beta'
+cell_types <- rep('endo', nrow(cpg_endo))
+cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
+rownames(cpg_endo) <- rownames(beta_endo)
+##strom
+cpg_strom <- as.data.frame(beta_strom[,cpg])
+colnames(cpg_strom) <- 'Beta'
+cell_types <- rep('strom', nrow(cpg_strom))
+cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
+rownames(cpg_strom) <- rownames(beta_strom)
+##hofb
+cpg_hofb <- as.data.frame(beta_hofb[,cpg])
+colnames(cpg_hofb) <- 'Beta'
+cell_types <- rep('hofb', nrow(cpg_hofb))
+cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
+rownames(cpg_hofb) <- rownames(beta_hofb)
+
+#combine data frame from different cell types
+cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
+cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
+#produce a boxplot
+plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs( x= 'Cell Types')
+#merge multiple plots into one
+plot_list = list()
+for (i in length(cpg_name)){
+  plot_list[[i]] <- plot1
+} 
+    }  
+plot_list 
+}
+a <- boxplot_beta(c('cg11062925','cg14361672'))
+
+
+
+```
+
