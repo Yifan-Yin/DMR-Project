@@ -38,62 +38,294 @@ beta <- readRDS('C:\\Users\\lenovo\\Desktop\\summer\\2_2_betas_term.rds')
 #pull out beta values from DM cpg sites
 beta <- as.data.frame(beta)
 beta_DMC <- beta[rownames(beta)%in% data$cpg,]
+
 #check if the samples are the same
 all(data$cpg%in% rownames(beta_DMC))
 all(rownames(beta_DMC)%in% data$cpg)
+
+
 ```
 
-#boxplot
+#plot for cpg site
 ```{r}
 #pull out beta values based on cell types
 beta_troph <- t(beta[, grepl('troph', colnames(beta))])
 beta_endo <- t(beta[, grepl('endo', colnames(beta))])
 beta_hofb <- t(beta[, grepl('hofb', colnames(beta))])
 beta_strom <- t(beta[, grepl('strom', colnames(beta))])
-cpgname <- data$cpg
-#a function that shows boxplot containing beta values of a cpg site
-boxplot_beta <- function(cpg_name){
-for (cpg in cpg_name) { 
-#pull out beta values based on cell types
-##troph
-cpg_troph <- as.data.frame(beta_troph[,cpg])
-colnames(cpg_troph) <- 'Beta'
-cell_types <- rep('troph', nrow(cpg_troph))
-cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
-rownames(cpg_troph) <- rownames(beta_troph)
-##endo
-cpg_endo <- as.data.frame(beta_endo[,cpg])
-colnames(cpg_endo) <- 'Beta'
-cell_types <- rep('endo', nrow(cpg_endo))
-cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
-rownames(cpg_endo) <- rownames(beta_endo)
-##strom
-cpg_strom <- as.data.frame(beta_strom[,cpg])
-colnames(cpg_strom) <- 'Beta'
-cell_types <- rep('strom', nrow(cpg_strom))
-cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
-rownames(cpg_strom) <- rownames(beta_strom)
-##hofb
-cpg_hofb <- as.data.frame(beta_hofb[,cpg])
-colnames(cpg_hofb) <- 'Beta'
-cell_types <- rep('hofb', nrow(cpg_hofb))
-cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
-rownames(cpg_hofb) <- rownames(beta_hofb)
+#pull out cpg site name
+cpgname <- DMC_alltest$cpg
+#remove duplicated items
+cpgname <- cpgname[!duplicated(cpgname)]
+cpg_1 <- c('cg02756922',"cg24692812","cg04249009","cg18101028")
 
-#combine data frame from different cell types
-cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
-cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
-#produce a boxplot
-plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs( x= 'Cell Types')
-#merge multiple plots into one
+#generate a empty list for loop use
 plot_list = list()
-for (i in length(cpg_name)){
-  plot_list[[i]] <- plot1
-} 
-    }  
-plot_list 
+#A function that shows boxplot containing beta values of a cpg site
+boxplot_beta <- function(cpg_name){
+  for (i in 1:length(cpg_name)) { 
+    #pull out beta values based on cell types
+    ##troph
+    cpg_troph <- as.data.frame(beta_troph[,cpg_name[i]])
+    colnames(cpg_troph) <- 'Beta'
+    cell_types <- rep('troph', nrow(cpg_troph))
+    cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
+    rownames(cpg_troph) <- rownames(beta_troph)
+    ##endo
+    cpg_endo <- as.data.frame(beta_endo[,cpg_name[i]])
+    colnames(cpg_endo) <- 'Beta'
+    cell_types <- rep('endo', nrow(cpg_endo))
+    cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
+    rownames(cpg_endo) <- rownames(beta_endo)
+    ##strom
+    cpg_strom <- as.data.frame(beta_strom[,cpg_name[i]])
+    colnames(cpg_strom) <- 'Beta'
+    cell_types <- rep('strom', nrow(cpg_strom))
+    cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
+    rownames(cpg_strom) <- rownames(beta_strom)
+    ##hofb
+    cpg_hofb <- as.data.frame(beta_hofb[,cpg_name[i]])
+    colnames(cpg_hofb) <- 'Beta'
+    cell_types <- rep('hofb', nrow(cpg_hofb))
+    cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
+    rownames(cpg_hofb) <- rownames(beta_hofb)
+    #combine data frame from different cell types
+    cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
+    cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
+    #produce a boxplot
+    plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs(title = cpg_name[i],x= 'Cell Types')
+    plot_list[[i]] = plot1
+  }
+#merge into one plot
+do.call("ggarrange", c(plot_list, ncol=2, nrow= 2))
+plot_list
 }
-a <- boxplot_beta(c('cg11062925','cg14361672'))
+
+b <- boxplot_beta(cpg_1)
+
+
+#pull out cpg annotation information(data from DMC data set)
+cpg_info <- function(cpg_name){
+  cpg <- NULL
+  for (i in 1:length(cpg_name)){
+  a <- data[grep(cpg_name[i], data$cpg),]
+  cpg <- rbind(a, cpg)
+  }
+cpg
+}
+b <- cpg_info(cpg_1)
+
+
+#heatmap (data from all test data set ? why)
+heatmap_cpg <- function(cpg_name){
+  cpg <- NULL
+  for (i in 1:length(cpg_name)){
+  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
+  b <- a$p.value
+  cpg <- as.data.frame(cbind(cpg, b))
+  rownames(cpg) <- a$Cell_type
+  }
+colnames(cpg) <- cpg_name
+pheatmap(cpg)
+}
+
+#heatmap (use ggplot function)
+heatmap_cpg <- function(cpg_name){
+  cpg <- NULL
+  for (i in 1:length(cpg_name)){
+  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
+  cpg <- as.data.frame(rbind(cpg, a))
+  }
+cpg<- select(cpg, cpg, Cell_type, p.value)
+cpg$cpg <- as.character(cpg$cpg)
+cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+cpg$Cell_type <- as.factor(cpg$Cell_type)
+plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
+plot
+cpg
+}
+b <- heatmap_cpg(cpg_1)
+
+
+```
+
+#plot for gene
+```{r}
+#pull out gene information
+gene <- as.data.frame(data$UCSC_RefGene_Name)
+a <- apply(gene, 1, strsplit,';')
+a <- unlist(a)
+gene <- a[!duplicated(a)]
+gene <- gene[!is.na(gene)]
+gene <- as.data.frame(gene)
+gene1 <- 'FBXO38'
+
+#first step, find cpg site name through gene name
+cpgsite <- data[grep('PARN', data$UCSC_RefGene_Name),]
+cpgsite <- cpgsite$cpg
+
+#generate a empty list for loop use
+plot_list = list()
+#A function that shows boxplot containing beta values of a cpg site
+boxplot_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #pull out beta values based on cell types
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+    for (i in 1:length(cpg_name)){
+    ##troph
+    cpg_troph <- as.data.frame(beta_troph[,cpg_name[i]])
+    colnames(cpg_troph) <- 'Beta'
+    cell_types <- rep('troph', nrow(cpg_troph))
+    cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
+    rownames(cpg_troph) <- rownames(beta_troph)
+    ##endo
+    cpg_endo <- as.data.frame(beta_endo[,cpg_name[i]])
+    colnames(cpg_endo) <- 'Beta'
+    cell_types <- rep('endo', nrow(cpg_endo))
+    cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
+    rownames(cpg_endo) <- rownames(beta_endo)
+    ##strom
+    cpg_strom <- as.data.frame(beta_strom[,cpg_name[i]])
+    colnames(cpg_strom) <- 'Beta'
+    cell_types <- rep('strom', nrow(cpg_strom))
+    cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
+    rownames(cpg_strom) <- rownames(beta_strom)
+    ##hofb
+    cpg_hofb <- as.data.frame(beta_hofb[,cpg_name[i]])
+    colnames(cpg_hofb) <- 'Beta'
+    cell_types <- rep('hofb', nrow(cpg_hofb))
+    cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
+    rownames(cpg_hofb) <- rownames(beta_hofb)
+    #combine data frame from different cell types
+    cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
+    cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
+    #produce a boxplot
+    plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs(title = cpg_name[i],x= 'Cell Types')
+    plot_list[[i]] = plot1
+    }
+  }
+#merge into one plot
+do.call("ggarrange", c(plot_list, ncol=2, nrow= 2))
+plot_list
+}
+a <- boxplot_gene('PARN')
+
+
+#heatmap
+heatmap_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #pull out beta values based on cell types
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+    
+  cpg <- NULL
+  for (i in 1:length(cpg_name)){
+  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
+  cpg <- as.data.frame(rbind(cpg, a))
+  }
+cpg<- select(cpg, cpg, Cell_type, p.value)
+cpg$cpg <- as.character(cpg$cpg)
+cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+cpg$Cell_type <- as.factor(cpg$Cell_type)
+plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
+  }
+plot
+cpg
+}
+
+#cpg info
+
+cpg_info1 <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #pull out beta values based on cell types
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+  cpg <- NULL
+  for (i in 1:length(cpg_name)){
+  a <- data[grep(cpg_name[i], data$cpg),]
+  cpg <- rbind(a, cpg)
+  }
+
+  }
+cpg
+}
+a <- cpg_info1('PARN')
+c <- merge(a,b, all =TRUE)
+```
+
+#total plot
+```{r}
+#boxplot
+box_plot <- function(cpg_name = NULL, gene_name = NULL){
+  
+  if(is.null(cpg_name)){
+  total_plot <- boxplot_gene(gene_name)
+  }
+  else if(is.null(gene_name)){
+  total_plot <- boxplot_beta(cpg_name)  
+  }
+  else{
+  total_plot <- c(boxplot_beta(cpg_name),boxplot_gene(gene_name))
+  }
+  do.call("ggarrange", c(total_plot, ncol=2, nrow= 2))
+}
+b <- box_plot(cpg_name = cpg_1)
+
+#heatmap
+heatmap_total <- function(cpg_name = NULL, gene_name = NULL){
+  if (is.null(cpg_name)){
+    cpg <- heatmap_gene(gene_name)
+    cpg<- select(cpg, cpg, Cell_type, p.value)
+    cpg$cpg <- as.character(cpg$cpg)
+    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+    cpg$Cell_type <- as.factor(cpg$Cell_type)
+    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
+    plot
+  }
+  else if (is.null(gene_name)){
+    cpg <- heatmap_cpg(cpg_name)
+    cpg<- select(cpg, cpg, Cell_type, p.value)
+    cpg$cpg <- as.character(cpg$cpg)
+    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+    cpg$Cell_type <- as.factor(cpg$Cell_type)
+    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
+    plot
+  }
+  else{
+    gene_data <- heatmap_gene(gene_name)
+    cpg_data <- heatmap_cpg(cpg_name)
+    cpg <- merge(gene_data, cpg_data, all = TRUE)
+    cpg<- select(cpg, cpg, Cell_type, p.value)
+    cpg$cpg <- as.character(cpg$cpg)
+    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+    cpg$Cell_type <- as.factor(cpg$Cell_type)
+    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
+    plot
+  }
+  
+}
+a <- heatmap_total(cpg_name = cpg_1,gene_name = 'PARN')
+
+#cpg information
+cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
+    if (is.null(cpg_name)){
+      info <- cpg_info1(gene_name)
+    }
+    else if (is.null(gene_name)){
+      info <- cpg_info(cpg_name)
+    }
+    else {
+      info1 <- cpg_info(cpg_name)
+      info2 <- cpg_info1(gene_name)
+      info <- merge(info1, info2, all= TRUE)
+    }
+  info
+}
+a <- cpg_info_total(cpg_name = cpg_1, gene_name = gene1)
+
+cpg_anno <- c('cpg','chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ,"UCSC_RefGene_Accession" ,"UCSC_RefGene_Group", "Phantom5_Enhancers","HMM_Island")
+
 
 
 
