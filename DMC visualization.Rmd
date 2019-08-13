@@ -25,6 +25,8 @@ library(kableExtra)
 library(ggplot2)
 library(ggpubr)
 library(fdrtool)
+library(microbenchmark)
+library(reshape2) 
 ```
 
 #data setup
@@ -43,291 +45,252 @@ beta_DMC <- beta[rownames(beta)%in% data$cpg,]
 all(data$cpg%in% rownames(beta_DMC))
 all(rownames(beta_DMC)%in% data$cpg)
 
+#pull out cpg site name for the search list use
+cpgname <- data$cpg
 
-```
-
-#plot for cpg site
-```{r}
-#pull out beta values based on cell types
-beta_troph <- t(beta[, grepl('troph', colnames(beta))])
-beta_endo <- t(beta[, grepl('endo', colnames(beta))])
-beta_hofb <- t(beta[, grepl('hofb', colnames(beta))])
-beta_strom <- t(beta[, grepl('strom', colnames(beta))])
-#pull out cpg site name
-cpgname <- DMC_alltest$cpg
-#remove duplicated items
-cpgname <- cpgname[!duplicated(cpgname)]
-cpg_1 <- c('cg02756922',"cg24692812","cg04249009","cg18101028")
-
-#generate a empty list for loop use
-plot_list = list()
-#A function that shows boxplot containing beta values of a cpg site
-boxplot_beta <- function(cpg_name){
-  for (i in 1:length(cpg_name)) { 
-    #pull out beta values based on cell types
-    ##troph
-    cpg_troph <- as.data.frame(beta_troph[,cpg_name[i]])
-    colnames(cpg_troph) <- 'Beta'
-    cell_types <- rep('troph', nrow(cpg_troph))
-    cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
-    rownames(cpg_troph) <- rownames(beta_troph)
-    ##endo
-    cpg_endo <- as.data.frame(beta_endo[,cpg_name[i]])
-    colnames(cpg_endo) <- 'Beta'
-    cell_types <- rep('endo', nrow(cpg_endo))
-    cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
-    rownames(cpg_endo) <- rownames(beta_endo)
-    ##strom
-    cpg_strom <- as.data.frame(beta_strom[,cpg_name[i]])
-    colnames(cpg_strom) <- 'Beta'
-    cell_types <- rep('strom', nrow(cpg_strom))
-    cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
-    rownames(cpg_strom) <- rownames(beta_strom)
-    ##hofb
-    cpg_hofb <- as.data.frame(beta_hofb[,cpg_name[i]])
-    colnames(cpg_hofb) <- 'Beta'
-    cell_types <- rep('hofb', nrow(cpg_hofb))
-    cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
-    rownames(cpg_hofb) <- rownames(beta_hofb)
-    #combine data frame from different cell types
-    cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
-    cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
-    #produce a boxplot
-    plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs(title = cpg_name[i],x= 'Cell Types')
-    plot_list[[i]] = plot1
-  }
-#merge into one plot
-do.call("ggarrange", c(plot_list, ncol=2, nrow= 2))
-plot_list
-}
-
-b <- boxplot_beta(cpg_1)
-
-
-#pull out cpg annotation information(data from DMC data set)
-cpg_info <- function(cpg_name){
-  cpg <- NULL
-  for (i in 1:length(cpg_name)){
-  a <- data[grep(cpg_name[i], data$cpg),]
-  cpg <- rbind(a, cpg)
-  }
-cpg
-}
-b <- cpg_info(cpg_1)
-
-
-#heatmap (data from all test data set ? why)
-heatmap_cpg <- function(cpg_name){
-  cpg <- NULL
-  for (i in 1:length(cpg_name)){
-  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
-  b <- a$p.value
-  cpg <- as.data.frame(cbind(cpg, b))
-  rownames(cpg) <- a$Cell_type
-  }
-colnames(cpg) <- cpg_name
-pheatmap(cpg)
-}
-
-#heatmap (use ggplot function)
-heatmap_cpg <- function(cpg_name){
-  cpg <- NULL
-  for (i in 1:length(cpg_name)){
-  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
-  cpg <- as.data.frame(rbind(cpg, a))
-  }
-cpg<- select(cpg, cpg, Cell_type, p.value)
-cpg$cpg <- as.character(cpg$cpg)
-cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-cpg$Cell_type <- as.factor(cpg$Cell_type)
-plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
-plot
-cpg
-}
-b <- heatmap_cpg(cpg_1)
-
-
-```
-
-#plot for gene
-```{r}
-#pull out gene information
-gene <- as.data.frame(data$UCSC_RefGene_Name)
+#pull out gene name for the search list use
+gene <- as.matrix(data$UCSC_RefGene_Name)
 a <- apply(gene, 1, strsplit,';')
 a <- unlist(a)
 gene <- a[!duplicated(a)]
 gene <- gene[!is.na(gene)]
 gene <- as.data.frame(gene)
-gene1 <- 'FBXO38'
 
-#first step, find cpg site name through gene name
-cpgsite <- data[grep('PARN', data$UCSC_RefGene_Name),]
-cpgsite <- cpgsite$cpg
+```
 
-#generate a empty list for loop use
-plot_list = list()
-#A function that shows boxplot containing beta values of a cpg site
-boxplot_gene <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #pull out beta values based on cell types
-    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-    for (i in 1:length(cpg_name)){
-    ##troph
-    cpg_troph <- as.data.frame(beta_troph[,cpg_name[i]])
-    colnames(cpg_troph) <- 'Beta'
-    cell_types <- rep('troph', nrow(cpg_troph))
-    cpg_troph <- mutate(cpg_troph, cell_types = cell_types)
-    rownames(cpg_troph) <- rownames(beta_troph)
-    ##endo
-    cpg_endo <- as.data.frame(beta_endo[,cpg_name[i]])
-    colnames(cpg_endo) <- 'Beta'
-    cell_types <- rep('endo', nrow(cpg_endo))
-    cpg_endo <- mutate(cpg_endo, cell_types = cell_types)
-    rownames(cpg_endo) <- rownames(beta_endo)
-    ##strom
-    cpg_strom <- as.data.frame(beta_strom[,cpg_name[i]])
-    colnames(cpg_strom) <- 'Beta'
-    cell_types <- rep('strom', nrow(cpg_strom))
-    cpg_strom <- mutate(cpg_strom, cell_types = cell_types)
-    rownames(cpg_strom) <- rownames(beta_strom)
-    ##hofb
-    cpg_hofb <- as.data.frame(beta_hofb[,cpg_name[i]])
-    colnames(cpg_hofb) <- 'Beta'
-    cell_types <- rep('hofb', nrow(cpg_hofb))
-    cpg_hofb <- mutate(cpg_hofb, cell_types = cell_types)
-    rownames(cpg_hofb) <- rownames(beta_hofb)
-    #combine data frame from different cell types
-    cpg_beta <- rbind(cpg_endo, cpg_hofb, cpg_strom, cpg_troph)
-    cpg_beta$cell_types <- as.factor(cpg_beta$cell_types)
-    #produce a boxplot
-    plot1 <- ggplot(cpg_beta, aes(x = cell_types, y = Beta))+ geom_boxplot(aes(fill=cell_types)) +labs(title = cpg_name[i],x= 'Cell Types')
-    plot_list[[i]] = plot1
-    }
-  }
-#merge into one plot
-do.call("ggarrange", c(plot_list, ncol=2, nrow= 2))
-plot_list
+
+#boxplot
+##only cpg input
+```{r}
+#Single plot function (produce a boxplot when click the cpg site name)
+boxplot_singleplot <- function(cpg_name){
+    #get input cpg site beta values
+    cpg <- filter(beta, rownames(beta) %in% cpg_name)
+    rownames(cpg) <- cpg_name
+    
+    #get sample cell types
+    cpg <- colnames(cpg) %>% substr(7,15) %>% rbind(cpg)
+    cpg <- t(cpg) %>% as_tibble() 
+    colnames(cpg)[1] <- 'cell_types'
+    cpg <- cpg %>% filter(!cell_types == 'vc' & !cell_types =='tro2' & !cell_types == 'vc_R1')
+    cpg$cell_types <- as.factor(cpg$cell_types)
+    cpg[,2:(length(cpg_name)+1)] <- select(cpg, -cell_types) %>% apply(2, as.numeric)
+    
+    #reshape data for producing multiple boxplots
+    cpg <- melt(cpg, id = 'cell_types')
+    
+    #boxplot
+    ggplot(cpg)+geom_boxplot(aes(x=cell_types, y=value, fill = cell_types))+facet_wrap(.~variable)+ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+labs(x = 'Cell Types', y ='beta')
 }
-a <- boxplot_gene('PARN')
-
-
-#heatmap
-heatmap_gene <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #pull out beta values based on cell types
+#information for producing boxplot which shows beta values of input cpg sites
+boxplot_cpg <- function(cpg_name){
+    #get input cpg site beta values
+    cpg <- filter(beta, rownames(beta) %in% cpg_name)
+    rownames(cpg) <- cpg_name
+    
+    #get sample cell types
+    cpg <- colnames(cpg) %>% substr(7,15) %>% rbind(cpg)
+    cpg <- t(cpg) %>% as_tibble() 
+    colnames(cpg)[1] <- 'cell_types'
+    cpg <- cpg %>% filter(!cell_types == 'vc' & !cell_types =='tro2' & !cell_types == 'vc_R1')
+    cpg$cell_types <- as.factor(cpg$cell_types)
+    cpg[,2:(length(cpg_name)+1)] <- select(cpg, -cell_types) %>% apply(2, as.numeric)
+    
+    #reshape data for producing multiple boxplots
+    cpg <- melt(cpg, id = 'cell_types')
+    
+    cpg
+}
+```
+##only gene input
+```{r}
+#information for producing boxplot which shows beta values of cpg sites related input genes
+boxplot_gene <- function(gene_name){
+ 
+    #get cpgs sites related to input genes
     cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
     cpg_name <- cpg_name$cpg
     
-  cpg <- NULL
-  for (i in 1:length(cpg_name)){
-  a <- DMC_alltest[grep(cpg_name[i], DMC_alltest$cpg),]
-  cpg <- as.data.frame(rbind(cpg, a))
-  }
-cpg<- select(cpg, cpg, Cell_type, p.value)
-cpg$cpg <- as.character(cpg$cpg)
-cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-cpg$Cell_type <- as.factor(cpg$Cell_type)
-plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
-  }
-plot
-cpg
+    cpg <- boxplot_cpg(cpg_name)
+    
+cpg 
 }
-
-#cpg info
-
-cpg_info1 <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #pull out beta values based on cell types
-    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-  cpg <- NULL
-  for (i in 1:length(cpg_name)){
-  a <- data[grep(cpg_name[i], data$cpg),]
-  cpg <- rbind(a, cpg)
-  }
-
-  }
-cpg
-}
-a <- cpg_info1('PARN')
-c <- merge(a,b, all =TRUE)
 ```
-
-#total plot
+##both cpg and gene input
 ```{r}
 #boxplot
-box_plot <- function(cpg_name = NULL, gene_name = NULL){
-  
+boxplot_total <- function(cpg_name = NULL, gene_name = NULL){
+  #when only have gene input
   if(is.null(cpg_name)){
-  total_plot <- boxplot_gene(gene_name)
-  }
-  else if(is.null(gene_name)){
-  total_plot <- boxplot_beta(cpg_name)  
-  }
-  else{
-  total_plot <- c(boxplot_beta(cpg_name),boxplot_gene(gene_name))
-  }
-  do.call("ggarrange", c(total_plot, ncol=2, nrow= 2))
-}
-b <- box_plot(cpg_name = cpg_1)
-
-#heatmap
-heatmap_total <- function(cpg_name = NULL, gene_name = NULL){
-  if (is.null(cpg_name)){
-    cpg <- heatmap_gene(gene_name)
-    cpg<- select(cpg, cpg, Cell_type, p.value)
-    cpg$cpg <- as.character(cpg$cpg)
-    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-    cpg$Cell_type <- as.factor(cpg$Cell_type)
-    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
-    plot
-  }
-  else if (is.null(gene_name)){
-    cpg <- heatmap_cpg(cpg_name)
-    cpg<- select(cpg, cpg, Cell_type, p.value)
-    cpg$cpg <- as.character(cpg$cpg)
-    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-    cpg$Cell_type <- as.factor(cpg$Cell_type)
-    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
-    plot
-  }
-  else{
-    gene_data <- heatmap_gene(gene_name)
-    cpg_data <- heatmap_cpg(cpg_name)
-    cpg <- merge(gene_data, cpg_data, all = TRUE)
-    cpg<- select(cpg, cpg, Cell_type, p.value)
-    cpg$cpg <- as.character(cpg$cpg)
-    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-    cpg$Cell_type <- as.factor(cpg$Cell_type)
-    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = p.value), colour = 'white') + labs(y = 'Cell Types') + scale_fill_gradient(low = "red",high = 'yellow')
-    plot
+  cpg <- boxplot_gene(gene_name)
   }
   
+  #when only have cpg input
+  else if(is.null(gene_name)){
+  cpg <- boxplot_cpg(cpg_name)  
+  }
+  
+  #when have both cpg and gene input
+  else{
+  cpg <- rbind(boxplot_cpg(cpg_name),boxplot_gene(gene_name))
+  }
+  #boxplot
+ggplot(cpg,aes(x=cell_types, y=value))+geom_boxplot(aes(fill = cell_types))+facet_wrap(.~variable)+ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+labs(x = 'Cell Types', y ='beta', fill = 'Cell Types')
 }
-a <- heatmap_total(cpg_name = cpg_1,gene_name = 'PARN')
 
-#cpg information
+```
+
+
+#datatable
+##only cpg input
+```{r}
+#datatable which shows all DMC tests
+cpg_info <- function(cpg_name){
+#get input cpg site information
+cpg <- filter(DMC_alltest, cpg %in% cpg_name) %>% arrange(cpg)
+
+cpg
+}
+#datatable which shows only significant tests
+cpg_info_sig <- function(cpg_name){
+#get input cpg site information
+cpg <- filter(data, cpg %in% cpg_name) 
+  
+cpg
+}
+```
+##only gene input
+```{r}
+#datatable shows all cpg sites related to input gene
+cpg_info_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #get cpgsites related to input gene
+    cpg_name <- DMC_alltest[grep(gene_name, DMC_alltest$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+  }
+  cpg <- filter(DMC_alltest, cpg %in% cpg_name)%>% arrange(cpg)
+  cpg
+}
+
+#datatable shows significant cpg sites related to input gene
+cpg_info_sig_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #get cpg sites related to input gene
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+    }
+
+  cpg <- filter(DMC_alltest, cpg %in% cpg_name) %>% arrange(cpg)
+
+cpg
+}
+```
+##both input and gene input
+```{r}
+#datatable shows all tests
 cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
     if (is.null(cpg_name)){
-      info <- cpg_info1(gene_name)
+      info <- cpg_info_gene(gene_name)
     }
     else if (is.null(gene_name)){
       info <- cpg_info(cpg_name)
     }
     else {
       info1 <- cpg_info(cpg_name)
-      info2 <- cpg_info1(gene_name)
+      info2 <- cpg_info_gene(gene_name)
       info <- merge(info1, info2, all= TRUE)
     }
   info
 }
-a <- cpg_info_total(cpg_name = cpg_1, gene_name = gene1)
 
-cpg_anno <- c('cpg','chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ,"UCSC_RefGene_Accession" ,"UCSC_RefGene_Group", "Phantom5_Enhancers","HMM_Island")
+#datatable shows only significant tests
+cpg_info_total_sig <- function(cpg_name = NULL, gene_name = NULL){
+    if (is.null(cpg_name)){
+      info <- cpg_info_sig_gene(gene_name)
+    }
+    else if (is.null(gene_name)){
+      info <- cpg_info_sig(cpg_name)
+    }
+    else {
+      info1 <- cpg_info_sig(cpg_name)
+      info2 <- cpg_info_sig_gene(gene_name)
+      info <- merge(info1, info2, all= TRUE)
+    }
+  info
+}
+```
 
 
+#heatmap
+##only cpg input
+```{r}
+#heatmap to view test result
+heatmap_cpg <- function(cpg_name){
 
-
+  cpg <- filter(DMC_alltest, cpg %in% cpg_name)
+  
+    cpg<- select(cpg, cpg, Cell_type, bonferroni,estimate_b)
+    acc <- NULL
+    for (i in 1:nrow(cpg))
+    {
+      if(cpg[i,3] < 0.001 & abs(cpg[i,4]) >0.5)
+      {
+        bool <- 1
+      }
+      else
+      {
+        bool <- 0
+      }
+      acc <- c(acc, bool)
+    }
+    cpg <- mutate(cpg, bool = acc)
+    cpg$cpg <- as.character(cpg$cpg)
+    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
+    cpg$Cell_type <- as.factor(cpg$Cell_type)
+    cpg$bool<- as.factor(cpg$bool)
+cpg
+}
+```
+##only gene input
+```{r}
+#heatmap
+heatmap_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #pull out beta values based on cell types
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+  }
+  cpg <- heatmap_cpg(cpg_name)
+cpg
+}
+```
+#both cpg and gene input
+```{r}
+#heatmap
+heatmap_total <- function(cpg_name = NULL, gene_name = NULL){
+  if (is.null(cpg_name)){
+  cpg <- heatmap_gene(gene_name)
+  plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = bool), colour = 'white') + labs(y = 'Cell Types', fill ='DMC Result') + scale_fill_manual(
+                    values=c('Orange','Red'),
+                    labels=c('Insignificant','Significant'))
+  plot
+  }
+  else if (is.null(gene_name)){
+  cpg <- heatmap_cpg(cpg_name)
+  plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = bool), colour = 'white') + labs(y = 'Cell Types',fill ='DMC Result') + scale_fill_manual(
+                    values=c('Orange','Red'),
+                    labels=c('Insignificant','Significant'))  
+  plot
+  }
+  else{
+    gene_data <- heatmap_gene(gene_name)
+    cpg_data <- heatmap_cpg(cpg_name)
+    cpg <- merge(gene_data, cpg_data, all = TRUE)
+    plot <- ggplot(cpg) + geom_tile(aes(x = cpg, y = Cell_type, fill = bool), colour = 'white') + labs(y = 'Cell Types',fill ='DMC Result') + scale_fill_manual(
+                    values=c('Orange','Red'),
+                    labels=c('Insignificant','Significant')) 
+    plot
+  }
+}
 ```
 
