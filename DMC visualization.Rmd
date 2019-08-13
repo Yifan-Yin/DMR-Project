@@ -1,6 +1,8 @@
 ---
 title: "DMC Visualization"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -9,37 +11,43 @@ knitr::opts_chunk$set(echo = TRUE)
 
 #setup
 
+Load libraries
+
 ```{r}
-library(pheatmap)
-library(bumphunter)
-library(XML)
-library(xlsx)  
-library(readxl)
-library(stringr)
-library(yahew)  # library(devtools); install_github('wvictor14/yahew')
-library(minfi) # for loading methyldation data
-library(dplyr)
-library(IlluminaHumanMethylation450kanno.ilmn12.hg19) # for cpg info
-library(IlluminaHumanMethylation450kmanifest)
 library(kableExtra)
-library(ggplot2)
-library(ggpubr)
-library(fdrtool)
-library(microbenchmark)
-library(reshape2) 
+library(readr)
+library(tidyverse)
+```
+
+Load data
+
+```{r}
+#read DMC values from all tests
+DMC_alltest <- readRDS('Z:/Victor/Projects/NIH - cells/data/main/interim/2_2_Term_DMCs_alltests.rds')
+#read processed DMC values
+data <- read_tsv('Z:/Victor/Projects/NIH - cells/data/main/processed/2_2_Term_DMCs.txt')
+beta <- readRDS('Z:/Victor/Projects/NIH - cells/data/main/interim/2_2_betas_term.rds')
+
+# this doesn't match your cell factors levels currently, will need to change
+color_code <- readRDS('Z:/Victor/Projects/NIH - cells/data/main/interim/2_3_color_code.rds')
+color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
+
+# load sample data
+pDat <- readRDS('Z:/Victor/Projects/NIH - cells/data/main/interim/2_3_pDat_contam.rds')
+pDat <- pDat %>%
+  mutate(Tissue = case_when(
+    !(Tissue %in% c('Villi', 'Villi maternal', 'Syncytiotrophoblast')) ~ paste(Tissue, 'cs'),
+    Tissue == 'Syncytiotrophoblast' ~ 'Trophoblasts enz',
+    TRUE ~ Tissue
+  )) 
 ```
 
 #data setup
+
 ```{r}
-#read DMC values from all tests
-DMC_alltest <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs_alltests.rds')
-#read processed DMC values
-data <- read_xlsx('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs.xlsx')
-#read beta values from all tests
-beta <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_betas_term.rds')
 #pull out beta values from DM cpg sites
 beta <- as.data.frame(beta)
-beta_DMC <- beta[rownames(beta)%in% data$cpg,]
+beta_DMC <- beta[rownames(beta)%in% data$cpg,] ## Don't do this from now on
 
 #check if the samples are the same
 all(data$cpg%in% rownames(beta_DMC))
@@ -56,74 +64,84 @@ gene <- a[!duplicated(a)]
 gene <- gene[!is.na(gene)]
 gene <- as.data.frame(gene)
 
+#***
+# tidy solution:
+tibble(gene = str_split(data$UCSC_RefGene_Name, ';') %>%
+         unlist() %>%
+         unique()) %>%
+  filter(!is.na(gene))
+
 #for test use
 cpg_1 <-c("cg23235736", "cg17315703", "cg14623715")
-
-gene_1 <- c('PARN','PCID2')
 ```
 
+# Filter and reshape betas function
+
+Would be good to keep the filtering and reshaping in a separate function to reduce redundant code, since it is being ran every single time
+
+```{r}
+prep_betas <- function(x) {
+  
+  # 1. filter betas to cpg input
+  cpg <- beta[x,]
+  
+  # 2. get cell type --- note that in the future, can just add on the Tissue column from pDat, will supply later
+  cpg <- colnames(cpg) %>% substr(7,15) %>% rbind(cpg)
+  cpg <- t(cpg) %>% as_tibble() 
+  colnames(cpg)[1] <- 'cell_types'
+  cpg <- cpg %>% filter(!cell_types == 'vc' & !cell_types =='tro2' & !cell_types == 'vc_R1')
+  cpg$cell_types <- as.factor(cpg$cell_types)
+  cpg[,2:(length(x)+1)] <- select(cpg, -cell_types) %>% apply(2, as.numeric)
+  
+  # 3. reshape, I'd prefer you use dplyr::gather() over reshape2::melt
+  cpg <- cpg %>% gather(cpg, beta, contains('cg'))
+  
+  return(cpg)
+}
+```
 
 #boxplot
+
 ##only cpg input
+
 ```{r}
 #Single plot function (produce a boxplot when click the cpg site name)
 boxplot_singleplot <- function(cpg_name){
+  
     #get input cpg site beta values
-    cpg <- filter(beta, rownames(beta) %in% cpg_name)
-    rownames(cpg) <- cpg_name
-    
-    #get sample cell types
-    cpg <- colnames(cpg) %>% substr(7,15) %>% rbind(cpg)
-    cpg <- t(cpg) %>% as_tibble() 
-    colnames(cpg)[1] <- 'cell_types'
-    cpg <- cpg %>% filter(!cell_types == 'vc' & !cell_types =='tro2' & !cell_types == 'vc_R1')
-    cpg$cell_types <- as.factor(cpg$cell_types)
-    cpg[,2:(length(cpg_name)+1)] <- select(cpg, -cell_types) %>% apply(2, as.numeric)
-    
-    #reshape data for producing multiple boxplots
-    cpg <- melt(cpg, id = 'cell_types')
+    cpg <- prep_betas(cpg_name)
     
     #boxplot
-    ggplot(cpg)+geom_boxplot(aes(x=cell_types, y=value, fill = cell_types))+facet_wrap(.~variable)+ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+labs(x = 'Cell Types', y ='beta')
-}
-#information for producing boxplot which shows beta values of input cpg sites
-boxplot_cpg <- function(cpg_name){
-    #get input cpg site beta values
-    cpg <- filter(beta, rownames(beta) %in% cpg_name)
-    rownames(cpg) <- cpg_name
-    
-    #get sample cell types
-    cpg <- colnames(cpg) %>% substr(7,15) %>% rbind(cpg)
-    cpg <- t(cpg) %>% as_tibble() 
-    colnames(cpg)[1] <- 'cell_types'
-    cpg <- cpg %>% filter(!cell_types == 'vc' & !cell_types =='tro2' & !cell_types == 'vc_R1')
-    cpg$cell_types <- as.factor(cpg$cell_types)
-    cpg[,2:(length(cpg_name)+1)] <- select(cpg, -cell_types) %>% apply(2, as.numeric)
-    
-    #reshape data for producing multiple boxplots
-    cpg <- melt(cpg, id = 'cell_types')
-    
-    cpg
+    ggplot(cpg, aes(x=cell_types, y=beta, fill = cell_types)) +
+      geom_violin()+
+      geom_jitter(aes(color = cell_types), alpha = 0.5, show.legend = F) +
+      facet_wrap(.~cpg)+ 
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
+      labs(x = 'Cell Types', y ='beta')
 }
 ```
+
 ##only gene input
+
 ```{r}
 #information for producing boxplot which shows beta values of cpg sites related input genes
 boxplot_gene <- function(gene_name){
-   
-    #get cpgs sites related to input genes
-    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg_name$cpg %>% unique()
-
-    cpg <- boxplot_cpg(cpg_name)
-    cpg
+ 
+    # get cpgs sites related to input genes
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name), ]
+    cpg_name <- cpg_name$cpg
+    
+    # filter and reshape betas
+    cpg <- prep_betas(cpg_name)
+    
+    cpg 
 }
-
 ```
 ##both cpg and gene input
 ```{r}
 #boxplot
 boxplot_total <- function(cpg_name = NULL, gene_name = NULL){
+  
   #when only have gene input
   if(is.null(cpg_name)){
   cpg <- boxplot_gene(gene_name)
@@ -131,22 +149,28 @@ boxplot_total <- function(cpg_name = NULL, gene_name = NULL){
   
   #when only have cpg input
   else if(is.null(gene_name)){
-  cpg <- boxplot_cpg(cpg_name)  
+  cpg <- prep_betas(cpg_name)  
   }
   
   #when have both cpg and gene input
   else{
-  cpg <- rbind(boxplot_cpg(cpg_name),boxplot_gene(gene_name))
+  cpg <- rbind(boxplot_cpg(cpg_name), boxplot_gene(gene_name))
   }
-  #boxplot
-ggplot(cpg,aes(x=cell_types, y=value))+geom_boxplot(aes(fill = cell_types))+facet_wrap(.~variable)+ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+labs(x = 'Cell Types', y ='beta', fill = 'Cell Types')
+  
+  # generate output
+  ggplot(cpg,aes(x=cell_types, y=beta))+
+    geom_boxplot(aes(fill = cell_types))+
+    facet_wrap(.~cpg)+ 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
+    labs(x = 'Cell Types', y ='beta', fill = 'Cell Types')
 }
 
 ```
 
-
 #datatable
+
 ##only cpg input
+
 ```{r}
 #datatable which shows all DMC tests
 cpg_info <- function(cpg_name){
@@ -167,23 +191,24 @@ cpg
 ```{r}
 #datatable shows all cpg sites related to input gene
 cpg_info_gene <- function(gene_name){
-
-    #get cpgs sites related to input genes
-    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg_name$cpg %>% unique()
-
+  for (i in 1:length(gene_name)) { 
+    #get cpgsites related to input gene
+    cpg_name <- DMC_alltest[grep(gene_name, DMC_alltest$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+  }
   cpg <- filter(DMC_alltest, cpg %in% cpg_name)%>% arrange(cpg)
   cpg
 }
 
 #datatable shows significant cpg sites related to input gene
 cpg_info_sig_gene <- function(gene_name){
+  for (i in 1:length(gene_name)) { 
+    #get cpg sites related to input gene
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+    }
 
-    #get cpgs sites related to input genes
-    cpg_name <- filter(data, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg_name$cpg %>% unique()
-
-    cpg <- filter(data, cpg %in% cpg_name) %>% arrange(cpg)
+  cpg <- filter(DMC_alltest, cpg %in% cpg_name) %>% arrange(cpg)
 
 cpg
 }
@@ -258,13 +283,13 @@ cpg
 ```{r}
 #heatmap
 heatmap_gene <- function(gene_name){
-
-    #get cpgs sites related to input genes
-    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg_name$cpg %>% unique()
-
-    cpg <- heatmap_cpg(cpg_name)
-    cpg
+  for (i in 1:length(gene_name)) { 
+    #pull out beta values based on cell types
+    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
+    cpg_name <- cpg_name$cpg
+  }
+  cpg <- heatmap_cpg(cpg_name)
+cpg
 }
 ```
 #both cpg and gene input
