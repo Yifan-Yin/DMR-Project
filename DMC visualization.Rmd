@@ -56,6 +56,8 @@ gene <- a[!duplicated(a)]
 gene <- gene[!is.na(gene)]
 gene <- as.data.frame(gene)
 
+#for test use
+cpg_1 <-c("cg23235736", "cg17315703", "cg14623715")
 ```
 
 
