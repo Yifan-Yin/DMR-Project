@@ -58,6 +58,8 @@ gene <- as.data.frame(gene)
 
 #for test use
 cpg_1 <-c("cg23235736", "cg17315703", "cg14623715")
+
+gene_1 <- c('PARN','PCID2')
 ```
 
 
@@ -108,15 +110,15 @@ boxplot_cpg <- function(cpg_name){
 ```{r}
 #information for producing boxplot which shows beta values of cpg sites related input genes
 boxplot_gene <- function(gene_name){
- 
+   
     #get cpgs sites related to input genes
-    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-    
+    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
+    cpg_name <- cpg$cpg %>% unique()
+
     cpg <- boxplot_cpg(cpg_name)
-    
-cpg 
+    cpg
 }
+
 ```
 ##both cpg and gene input
 ```{r}
@@ -165,24 +167,23 @@ cpg
 ```{r}
 #datatable shows all cpg sites related to input gene
 cpg_info_gene <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #get cpgsites related to input gene
-    cpg_name <- DMC_alltest[grep(gene_name, DMC_alltest$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-  }
+
+    #get cpgs sites related to input genes
+    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
+    cpg_name <- cpg$cpg %>% unique()
+
   cpg <- filter(DMC_alltest, cpg %in% cpg_name)%>% arrange(cpg)
   cpg
 }
 
 #datatable shows significant cpg sites related to input gene
 cpg_info_sig_gene <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #get cpg sites related to input gene
-    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-    }
 
-  cpg <- filter(DMC_alltest, cpg %in% cpg_name) %>% arrange(cpg)
+    #get cpgs sites related to input genes
+    cpg_name <- filter(data, grepl(gene_name[i], UCSC_RefGene_Name))
+    cpg_name <- cpg$cpg %>% unique()
+
+    cpg <- filter(data, cpg %in% cpg_name) %>% arrange(cpg)
 
 cpg
 }
@@ -257,13 +258,13 @@ cpg
 ```{r}
 #heatmap
 heatmap_gene <- function(gene_name){
-  for (i in 1:length(gene_name)) { 
-    #pull out beta values based on cell types
-    cpg_name <- data[grep(gene_name, data$UCSC_RefGene_Name),]
-    cpg_name <- cpg_name$cpg
-  }
-  cpg <- heatmap_cpg(cpg_name)
-cpg
+
+    #get cpgs sites related to input genes
+    cpg_name <- filter(DMC_alltest, grepl(gene_name[i], UCSC_RefGene_Name))
+    cpg_name <- cpg$cpg %>% unique()
+
+    cpg <- heatmap_cpg(cpg_name)
+    cpg
 }
 ```
 #both cpg and gene input
