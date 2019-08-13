@@ -181,7 +181,7 @@ cpg_info_sig_gene <- function(gene_name){
 
     #get cpgs sites related to input genes
     cpg_name <- filter(data, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg$cpg %>% unique()
+    cpg_name <- cpg_name$cpg %>% unique()
 
     cpg <- filter(data, cpg %in% cpg_name) %>% arrange(cpg)
 
