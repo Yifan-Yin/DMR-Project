@@ -119,6 +119,19 @@ boxplot_gene <- function(gene_name){
     cpg
 }
 
+#information for significant cpg sites
+
+boxplot_gene_sig <- function(gene_name){
+#get cpgs sites related to input genes
+    cpg_name <- filter(data, grepl(gene_name, UCSC_RefGene_Name))
+    cpg_name <- cpg_name$cpg %>% unique()
+
+    cpg <- boxplot_cpg(cpg_name)
+    cpg
+    #boxplot
+    ggplot(cpg)+geom_boxplot(aes(x=cell_types, y=value, fill = cell_types))+facet_wrap(.~variable)+ theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+labs(x = 'Cell Types', y ='beta')
+}
+
 ```
 ##both cpg and gene input
 ```{r}
@@ -188,7 +201,7 @@ cpg_info_sig_gene <- function(gene_name){
 cpg
 }
 ```
-##both input and gene input
+##both cpg and gene input
 ```{r}
 #datatable shows all tests
 cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
@@ -267,7 +280,7 @@ heatmap_gene <- function(gene_name){
     cpg
 }
 ```
-#both cpg and gene input
+##both cpg and gene input
 ```{r}
 #heatmap
 heatmap_total <- function(cpg_name = NULL, gene_name = NULL){
