@@ -113,7 +113,7 @@ boxplot_gene <- function(gene_name){
    
     #get cpgs sites related to input genes
     cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg$cpg %>% unique()
+    cpg_name <- cpg_name$cpg %>% unique()
 
     cpg <- boxplot_cpg(cpg_name)
     cpg
@@ -170,7 +170,7 @@ cpg_info_gene <- function(gene_name){
 
     #get cpgs sites related to input genes
     cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
-    cpg_name <- cpg$cpg %>% unique()
+    cpg_name <- cpg_name$cpg %>% unique()
 
   cpg <- filter(DMC_alltest, cpg %in% cpg_name)%>% arrange(cpg)
   cpg
@@ -180,7 +180,7 @@ cpg_info_gene <- function(gene_name){
 cpg_info_sig_gene <- function(gene_name){
 
     #get cpgs sites related to input genes
-    cpg_name <- filter(data, grepl(gene_name[i], UCSC_RefGene_Name))
+    cpg_name <- filter(data, grepl(gene_name, UCSC_RefGene_Name))
     cpg_name <- cpg$cpg %>% unique()
 
     cpg <- filter(data, cpg %in% cpg_name) %>% arrange(cpg)
@@ -260,8 +260,8 @@ cpg
 heatmap_gene <- function(gene_name){
 
     #get cpgs sites related to input genes
-    cpg_name <- filter(DMC_alltest, grepl(gene_name[i], UCSC_RefGene_Name))
-    cpg_name <- cpg$cpg %>% unique()
+    cpg_name <- filter(DMC_alltest, grepl(gene_name, UCSC_RefGene_Name))
+    cpg_name <- cpg_name$cpg %>% unique()
 
     cpg <- heatmap_cpg(cpg_name)
     cpg
