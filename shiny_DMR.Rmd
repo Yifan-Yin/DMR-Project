@@ -36,19 +36,22 @@ ui <- fluidPage(
            br(), # add a space line
            br(), # add a space line
            hr(),#create a horizontal line
-           checkboxGroupInput('checkbox', 'CpG site annotation in datatable to show', cpg_anno, selected = c('cpg','chr','pos',"UCSC_RefGene_Name" ,"Islands_Name","Relation_to_Island" ))
+           checkboxGroupInput('checkbox', 'Information in datatable to show', names(data), selected = c('cpg', "Cell_type" ,"p.value","bonferroni" ,"estimate_b" ,'chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ))
           
            ), 
   
   mainPanel(
-
+  actionButton('all','Show all cell types'),
+  actionButton('significant','Show only significant cell types'),
   br(),
+  hr(),
   dataTableOutput('info'),
   #create a data table to show cpg site information         
   plotOutput('plot_beta'),
+  
   br(),
-  plotOutput('heatmap'),
-  textOutput('text')
+  plotOutput('single_plot'),
+  plotOutput('heatmap')
 
   )
   )
@@ -57,9 +60,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
     updateSelectizeInput(session = session, inputId = 'name', choices = data$cpg, server = TRUE)
     updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, server = TRUE)
-    proxy = dataTableProxy('info')
+    
     #produce output when click submit button
-    observeEvent(input$submit, {proxy %>% selectRows(NULL)})
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
     empty_df <- data[0,]
@@ -71,11 +73,33 @@ server <- function(input, output, session) {
         callback = JS("table.on('click.dt', 'tr',
                   function() {
                   Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
-                  });"))
+                  });"))%>% formatStyle(1, cursor = 'pointer')
        
       }
     )
-
+    observeEvent(input$all, {output$info <- DT:: renderDataTable(
+      {
+       DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE],
+        selection = 'single',
+        callback = JS("table.on('click.dt', 'tr',
+                  function() {
+                  Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
+                  });"))%>% formatStyle(1, cursor = 'pointer')
+      }
+    )})
+    observeEvent(input$significant, {output$info <- DT:: renderDataTable(
+      {
+       DT::datatable(cpg_info_total_sig(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE],
+        selection = 'single',
+        callback = JS("table.on('click.dt', 'tr',
+                  function() {
+                  Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
+                  });"))%>% formatStyle(1, cursor = 'pointer')
+      }
+      
+    )})
+    
+    #boxplot
     #retrive cpg name when click the datatable
     ##method 1 : can select multiple rows but cannot cancel the selection. need to find the solution
     cpg <- reactive({a <- input$rows
@@ -84,15 +108,24 @@ server <- function(input, output, session) {
     ##method 2 : single selection
     event_cpg <- eventReactive(input$info_cell_clicked, {c_info = input$info_cell_clicked
     c_info$value})
+  
     #boxplot
     output$plot_beta <- renderPlot(
-      { if (is.null(event_cpg())){
-        box_plot(cpg_name = event_submit(), gene_name = event_submit2())
-      } 
-
-        else{
-        boxplot_beta(cpg_name =  event_cpg())
+      { 
+        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2())
+      }
+    )
+    output$single_plot <- renderPlot(
+      {
+        if (!is.null(event_cpg()))
+        {
+          boxplot_cpg_single(event_cpg())
         }
+      }
+    )
+    output$heatmap <- renderPlot(
+      {
+        heatmap_total(cpg_name = event_submit(), gene_name = event_submit2())
       }
     )
    

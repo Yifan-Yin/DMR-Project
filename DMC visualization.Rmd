@@ -32,11 +32,11 @@ library(reshape2)
 #data setup
 ```{r}
 #read DMC values from all tests
-DMC_alltest <- readRDS('C:\\Users\\lenovo\\Desktop\\summer\\2_2_Term_DMCs_alltests.rds')
+DMC_alltest <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs_alltests.rds')
 #read processed DMC values
-data <- read_xlsx('C:\\Users\\lenovo\\Desktop\\summer\\2_2_Term_DMCs.xlsx')
+data <- read_xlsx('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs.xlsx')
 #read beta values from all tests
-beta <- readRDS('C:\\Users\\lenovo\\Desktop\\summer\\2_2_betas_term.rds')
+beta <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_betas_term.rds')
 #pull out beta values from DM cpg sites
 beta <- as.data.frame(beta)
 beta_DMC <- beta[rownames(beta)%in% data$cpg,]
