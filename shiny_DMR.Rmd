@@ -119,7 +119,7 @@ server <- function(input, output, session) {
       {
         if (!is.null(event_cpg()))
         {
-          boxplot_cpg_single(event_cpg())
+          boxplot_singleplot(event_cpg())
         }
       }
     )
