@@ -31,7 +31,7 @@ ui <- fluidPage(
            selectizeInput('name', 'CpG Site', choices = NULL,multiple = TRUE,options = list(placeholder='Enter CpG site names' )),
            #create action button
   
-           selectizeInput('gene', 'Gene', choices = NULL, multiple = TRUE, options = list(placeholder='Enter gene names' )),
+           selectizeInput('gene', 'Gene', choices = NULL, multiple = TRUE,options = list(placeholder='Enter a gene name',onInitialize = I('function() { this.setValue(""); }'))),
            actionButton("submit", "Submit"),
            br(), # add a space line
            br(), # add a space line
@@ -45,20 +45,21 @@ ui <- fluidPage(
   actionButton('significant','Show only significant cell types'),
   br(),
   hr(),
+  #create a data table to show cpg site information 
   dataTableOutput('info'),
-  #create a data table to show cpg site information         
-  plotOutput('plot_beta'),
-  
+  tabsetPanel(
+    tabPanel('Tissue', plotOutput('boxplot_tissue'), plotOutput('single_plot_tissue'), plotOutput('heatmap_tissue')),
+    tabPanel('Trimester', plotOutput('boxplot_trimester'), plotOutput('single_plot_trimester'), plotOutput('heatmap_trimester'))
+  ),      
   br(),
-  plotOutput('single_plot'),
-  plotOutput('heatmap')
+  plotOutput('heatmap_DMC_tissue')
 
   )
   )
 )
 
 server <- function(input, output, session) {
-    updateSelectizeInput(session = session, inputId = 'name', choices = data$cpg, server = TRUE)
+    updateSelectizeInput(session = session, inputId = 'name', choices = unique(DMC$cpg), server = TRUE)
     updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, server = TRUE)
     
     #produce output when click submit button
@@ -98,6 +99,7 @@ server <- function(input, output, session) {
       }
       
     )})
+
     
     #boxplot
     #retrive cpg name when click the datatable
@@ -110,22 +112,46 @@ server <- function(input, output, session) {
     c_info$value})
   
     #boxplot
-    output$plot_beta <- renderPlot(
+    output$boxplot_tissue <- renderPlot(
       { 
-        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2())
+        boxplot_tissue_total(cpg_name = event_submit(), gene_name = event_submit2())
       }
     )
-    output$single_plot <- renderPlot(
+    output$boxplot_trimester <- renderPlot(
+      {
+        boxplot_trimester_total(cpg_name = event_submit(), gene_name = event_submit2())
+      }
+    )
+    output$single_plot_tissue <- renderPlot(
       {
         if (!is.null(event_cpg()))
         {
-          boxplot_singleplot(event_cpg())
+          boxplot_tissue_single(event_cpg())
         }
       }
     )
-    output$heatmap <- renderPlot(
+    output$single_plot_trimester <- renderPlot(
       {
-        heatmap_total(cpg_name = event_submit(), gene_name = event_submit2())
+        if (!is.null(event_cpg()))
+        {
+          boxplot_trimester_single(event_cpg())
+        }
+      }
+    )
+    output$heatmap_DMC_tissue <- renderPlot(
+      {
+        heatmap_DMC_tissue(cpg_name = event_submit(), gene_name = event_submit2())
+      }
+    )
+    
+    output$heatmap_tissue <- renderPlot(
+      {
+        overview_tissue(cpg_name = event_submit(), gene_name = event_submit2())
+      }
+    )
+    output$heatmap_trimester <- renderPlot(
+      {
+        overview_trimester(cpg_name = event_submit(), gene_name = event_submit2())
       }
     )
    
