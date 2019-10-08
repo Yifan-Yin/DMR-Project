@@ -36,36 +36,36 @@ ui <- fluidPage(
            br(), # add a space line
            br(), # add a space line
            hr(),#create a horizontal line
-           checkboxGroupInput('checkbox', 'Information in datatable to show', names(data), selected = c('cpg', "Cell_type" ,"p.value","bonferroni" ,"estimate_b" ,'chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ))
+           checkboxGroupInput('checkbox', 'Information in datatable to show', names(anno), selected = c('cpg', "Cell_type" ,'chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ))
           
            ), 
   
   mainPanel(
-  actionButton('all','Show all cell types'),
-  actionButton('significant','Show only significant cell types'),
-  br(),
   hr(),
   #create a data table to show cpg site information 
   dataTableOutput('info'),
-  tabsetPanel(
-    tabPanel('Tissue', plotOutput('boxplot_tissue'), plotOutput('single_plot_tissue'), plotOutput('heatmap_tissue')),
-    tabPanel('Trimester', plotOutput('boxplot_trimester'), plotOutput('single_plot_trimester'), plotOutput('heatmap_trimester'))
-  ),      
+  #boxplot that shows tissue and trimester
+  plotOutput('boxplot_tissue'),
+  plotOutput('boxplot_trimester'),
   br(),
-  plotOutput('heatmap_DMC_tissue')
-
+  plotOutput('single_plot_tissue'),
+  plotOutput('single_plot_trimester')
   )
   )
 )
 
 server <- function(input, output, session) {
+    #searching list
     updateSelectizeInput(session = session, inputId = 'name', choices = unique(DMC$cpg), server = TRUE)
     updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, server = TRUE)
-    
+      
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
     empty_df <- data[0,]
+    #related cpg site
+    b <- reactive(fn_cpg(event_submit2()))
+
     #cpg site information datatable
     output$info <- DT::renderDataTable(
       { if (input$submit == FALSE) return(DT:: datatable(empty_df, options = list(paging = FALSE, searching = FALSE)))
@@ -88,26 +88,9 @@ server <- function(input, output, session) {
                   });"))%>% formatStyle(1, cursor = 'pointer')
       }
     )})
-    observeEvent(input$significant, {output$info <- DT:: renderDataTable(
-      {
-       DT::datatable(cpg_info_total_sig(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE],
-        selection = 'single',
-        callback = JS("table.on('click.dt', 'tr',
-                  function() {
-                  Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
-                  });"))%>% formatStyle(1, cursor = 'pointer')
-      }
-      
-    )})
-
     
     #boxplot
-    #retrive cpg name when click the datatable
-    ##method 1 : can select multiple rows but cannot cancel the selection. need to find the solution
-    cpg <- reactive({a <- input$rows
-    a <- a[grep('cg',a)]})
-    
-    ##method 2 : single selection
+    ##retrive cpg name when click the datatable
     event_cpg <- eventReactive(input$info_cell_clicked, {c_info = input$info_cell_clicked
     c_info$value})
   
@@ -138,23 +121,6 @@ server <- function(input, output, session) {
         }
       }
     )
-    output$heatmap_DMC_tissue <- renderPlot(
-      {
-        heatmap_DMC_tissue(cpg_name = event_submit(), gene_name = event_submit2())
-      }
-    )
-    
-    output$heatmap_tissue <- renderPlot(
-      {
-        overview_tissue(cpg_name = event_submit(), gene_name = event_submit2())
-      }
-    )
-    output$heatmap_trimester <- renderPlot(
-      {
-        overview_trimester(cpg_name = event_submit(), gene_name = event_submit2())
-      }
-    )
-   
 
 }
 shinyApp(ui, server)

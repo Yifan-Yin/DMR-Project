@@ -21,30 +21,17 @@ library(ggpubr)
 
 #data setup
 ```{r}
-#read DMC_alltest values from all tests
-DMC_alltest <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs_alltests.rds')
-#read processed DMC_alltest values
-data <- read_xlsx('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_2_Term_DMCs.xlsx')
-
-#anno
+#read cpg annotation info
 anno <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\3_1_annotation.rds')
 ref_group <- anno[, c(1,12:19)]
 anno <- anno[, -12:-19]
-##only significant tests
-data <- select(data, cpg, Cell_type, fdr,bonferroni, estimate_b) %>% merge(anno)
-##all tests
-DMC_alltest <- select(DMC_alltest, cpg, Cell_type, fdr,bonferroni, estimate_b) %>% merge(anno)
 
 #mean and SD data
 stat <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\3_1_betas_cell_mean_sd.rds')
 
-#DNA methylation data
+#read cpg methylation data
 beta <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\1_4_betas_noob_filt_XYkeep.rds')
 
-#color code
-color_code <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_3_color_code.rds')
-color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
-colors <- color_code_tissue[unique(pDat$Tissue)]
 #pData
 pDat <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_3_pDat_contam.rds')
 pDat <- pDat %>%
@@ -55,11 +42,19 @@ pDat <- pDat %>%
     filter(Tissue %in% c('Endothelial cs', 'Hofbauer cs','Stromal cs', 'Trophoblasts cs', 'Trophoblasts enz','Villi')) %>% 
     select(Trimester, Tissue, Sentrix)
 
+#color code
+color_code <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_3_color_code.rds')
+color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
+colors <- color_code_tissue[unique(pDat$Tissue)]
+
 #pull out gene name for search list use
-tibble(gene = str_split(DMC_alltest$genes_symbol, ', ') %>%
+gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
         unlist() %>%
          unique()) %>%
   filter(!is.na(gene))
+#pull out cpg name for search list use
+cpg <- unique(anno$cpg) %>%tibble()
+
 #for test use
 cpg_1 <-c("cg23235736", "cg17315703", "cg14623715")
 
@@ -67,9 +62,25 @@ gene_1 <- c('PCID2')
 ```
 
 
-#boxplot
-##Main function1(single plot for click use)
+#beta boxplot
+##Main function1(produce a single plot when clicking a cpg site name)
 ```{r}
+#combine tissue and trimester plots
+boxplot_single <- function(cpg_name = NULL){
+  plot1 <- boxplot_tissue_single(cpg_name = cpg_name)
+  plot2 <- boxplot_trimester_single(cpg_name = cpg_name)
+  
+  plot <- plot_grid(ggarrange(plot1 + theme(legend.position = ''), 
+                              plot2 + theme(legend.position = ''), 
+                              nrow = 2, align = 'hv'),
+                    plot_grid(get_legend(plot1), 
+                    get_legend(plot2), 
+                    ncol = 1, align = 'hv'), 
+                    ncol = 2,rel_widths = c(5,1)
+                    )
+  plot
+}
+
 #boxplots which show beta values based on cell types
 boxplot_tissue_single <- function(cpg_name){
   
@@ -90,16 +101,32 @@ boxplot_trimester_single <- function(cpg_name){
 }
 ```
 
-##Main function2(multiple plots for overview)
+##Main function2(produce boxplots when having multiple cpg sites)
 ```{r}
-#boxplot
+#combine tissue and trimester plots
+boxplot_total <- function(cpg_name = NULL, gene_name = NULL){
+  plot1 <- boxplot_tissue_total(cpg_name = cpg_name, gene_name = gene_name)
+  plot2 <- boxplot_trimester_total(cpg_name = cpg_name, gene_name = gene_name)
+  
+  plot <- plot_grid(ggarrange(plot1 + theme(legend.position = ''), 
+                              plot2 + theme(legend.position = ''), 
+                              nrow = 2, align = 'hv'),
+                    plot_grid(get_legend(plot1), 
+                    get_legend(plot2), 
+                    ncol = 1, align = 'hv'), 
+                    ncol = 2,rel_widths = c(5,1)
+                    )
+  plot
+}
+
+#boxplot to show different tissue types
 boxplot_tissue_total <- function(cpg_name = NULL, gene_name = NULL){
-  #when only have gene input
+  #when only have gene inputs
   if(is.null(cpg_name)){
   cpg <- sample_info_gene(gene_name)
   }
   
-  #when only have cpg input
+  #when only have cpg inputs
   else if(is.null(gene_name)){
   cpg <- sample_info_cpg(cpg_name)  
   }
@@ -112,7 +139,7 @@ boxplot_tissue_total <- function(cpg_name = NULL, gene_name = NULL){
   boxplot_tissue(cpg)
 }
 
-
+#boxplot to show different trimesters
 boxplot_trimester_total <- function(cpg_name = NULL, gene_name = NULL){
   #when only have gene input
   if(is.null(cpg_name)){
@@ -134,9 +161,9 @@ boxplot_trimester_total <- function(cpg_name = NULL, gene_name = NULL){
 
 ```
 
-##prepare data for plot use(only cpg input)
+##pull out cpg information(beta, tissue and trimester)
 ```{r}
-#get sample information (beta, cell types and trimester)
+#get sample information (beta, tissue and trimester)
 sample_info_cpg <- function(cpg_name){
     
     cpg <- beta[cpg_name,]
@@ -155,13 +182,10 @@ sample_info_cpg <- function(cpg_name){
     }
     cpg
 }   
-    cpg<- beta[cpg_1,]
-    cpg <- cpg[,colnames(cpg) %in% pDat$Sentrix]
-    cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, beta, contains('cg'))
 
 ```
 
-##prepare data for plot use(only gene input)
+##pull out information of cpgs that are related to a gene
 ```{r}
 #information for producing boxplot which shows beta values of cpg sites related input genes
 sample_info_gene <- function(gene_name){
@@ -171,17 +195,16 @@ sample_info_gene <- function(gene_name){
   cpg <- sample_info_cpg(cpg_name)
   cpg
 }
-
-
 ```
 
 ###get related cpg sites
 ```{r}
 fn_cpg <- function(gene_name){
-  cpg_name <- DMC_alltest[grepl(gene_name, DMC_alltest$genes_symbol),]
+  cpg_name <- anno[grepl(gene_name, anno$genes_symbol),]
   cpg_name <- cpg_name$cpg %>% unique()
   cpg_name
 }
+
 ```
 
 ##ggplot function
@@ -206,10 +229,10 @@ boxplot_trimester <- function(cpg){
 ```
 
 
-#datatable
+#datatable which shows cpg annotation
 ##Main function
 ```{r}
-#datatable shows all tests
+#datatable which shows cpg annotation (when inputs have both cpgs and genes)
 cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
     if (is.null(cpg_name)){
       info <- cpg_info_gene(gene_name)
@@ -224,75 +247,37 @@ cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
     }
   info
 }
-
-
-#datatable shows only significant tests
-cpg_info_total_sig <- function(cpg_name = NULL, gene_name = NULL){
-    if (is.null(cpg_name)){
-      info <- cpg_info_gene_sig(gene_name)
-    }
-    else if (is.null(gene_name)){
-      info <- cpg_info_sig(cpg_name)
-    }
-    else {
-      info1 <- cpg_info_sig(cpg_name)
-      info2 <- cpg_info_gene_sig(gene_name)
-      info <- merge(info1, info2, all= TRUE)
-    }
-  info
-}
 ```
 
-##only cpg input
+##when input only cpgs
 ```{r}
-#datatable which shows all DMC_alltest tests
+#datatable which shows cpg annotation
 cpg_info <- function(cpg_name){
-#get input cpg site information
-cpg <- filter(DMC_alltest, cpg %in% cpg_name) %>% arrange(cpg)
+
+  cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(cpg)
 
 cpg
 }
-
-#datatable which shows only significant tests
-cpg_info_sig <- function(cpg_name){
-#get input cpg site information
-cpg <- filter(data, cpg %in% cpg_name) 
-  
-cpg
-}
-
 ```
 
-##only gene input
+##when input only genes
 ```{r}
 #datatable shows all cpg sites related to input gene
 cpg_info_gene <- function(gene_name){
 
   #get cpgs sites related to input genes
-
   cpg_name <- fn_cpg(gene_name)
-
-  cpg <- filter(DMC_alltest, cpg %in% cpg_name)%>% arrange(cpg)
+  
+  cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(cpg)
   cpg
 }
-
-#datatable shows significant cpg sites related to input gene
-cpg_info_gene_sig <- function(gene_name){
-
-    #get cpgs sites related to input genes
-    cpg_name <- filter(data, grepl(gene_name, genes_symbol))
-    cpg_name <- cpg_name$cpg %>% unique()
-
-    cpg <- filter(data, cpg %in% cpg_name) %>% arrange(cpg)
-
-cpg
-}
-
 ```
 
-#plot to view mean and SD
+
+#plots to view mean and SD
 ##Main function
 ```{r}
+ref_group <- ref_group %>% gather(key = 'gene_id', value = 'value', -cpg)
 overview_tissue <- function(cpg_name = NULL, gene_name = NULL){
   if (is.null(cpg_name)){
   cpg <- fn_cpg(gene_name)
@@ -333,160 +318,64 @@ overview_trimester <- function(cpg_name = NULL, gene_name = NULL){
 overview_tissue_cpg <- function(cpg_name){
   plot1 <- heatmap_ref(cpg_name)
   
-  plot2 <- stat %>% filter(cpg %in% cpg_name) %>% mutate(lower = mean -sd, upper = mean +sd) %>%
+  plot2 <- lineplot(cpg_name)
+  
+  plot <- plot_grid(ggarrange( 
+                    plot1 + theme(legend.position = ''),
+                    plot2 + theme(legend.position = '') + labs(y = 'methylation%', x =''),
+                    nrow = 2, widths = c(0.25, 3), align = 'h'),
+          plot_grid(get_legend(plot1), 
+                    get_legend(plot2), 
+                    ncol = 1, align = 'hv'), 
+          ncol = 2, rel_widths = c(5,1))
+  plot
+
+  plot
+}
+
+
+#line plot to view mean and sd
+lineplot <- function(cpg_name){
+  
+  plot <- stat %>% filter(cpg %in% cpg_name) %>% mutate(lower = mean -sd, upper = mean +sd) %>%
   ggplot() +
   geom_linerange(alpha = 0.75, size = 1, aes(x = cpg, ymin =(lower)*100, ymax = (upper)*100, color = Tissue)) +
   geom_point(alpha = 0.75, aes(x = cpg, y = (mean) *100, color = Tissue), size = 2) +
   theme_bw() +
-  coord_flip() +
-  theme(axis.text.y = element_blank(), plot.margin=margin(l=-0.1,unit="cm")) +
+  theme(plot.margin=margin(l= 0.5,unit="cm")) +
   scale_y_continuous(limits = c(0, 100)) +
   scale_x_discrete(expand = c(0.01,0.01))+
-  labs(y = '% methylation', x = '')
-  plot <- plot_grid(ggarrange( 
-                    plot1 + theme(legend.position = ''),
-                    plot2 + theme(legend.position = ''),
-                    ncol = 2, widths = c(0.25, 3)),
-          plot_grid(get_legend(plot1), 
-                    get_legend(plot2), 
-                    ncol = 1, align = 'hv'), 
-          ncol = 2, rel_widths = c(5,1))
-  plot
-}
-overview_trimester_cpg <- function(cpg_name){
-  plot1 <- heatmap_ref(cpg_name)
+  labs(y = '', x = '') +
+  scale_fill_manual(values = colors) + 
+  scale_color_manual(values = colors)
   
-  plot2 <- stat %>% filter(cpg %in% cpg_name) %>% mutate(lower = mean -sd, upper = mean +sd) %>%
-  ggplot() +
-  geom_linerange(alpha = 0.75, size = 1, aes(x = cpg, ymin =(lower)*100, ymax = (upper)*100, color = Trimester)) +
-  geom_point(alpha = 0.75, aes(x = cpg, y = (mean) *100, color = Trimester), size = 2) +
-  theme_bw() +
-  coord_flip() +
-  theme(axis.text.y = element_blank(), plot.margin=margin(l=-0.1,unit="cm")) +
-  scale_y_continuous(limits = c(0, 100)) +
-  scale_x_discrete(expand = c(0.01,0.01))+
-  labs(y = '% methylation', x = '')
-  plot <- plot_grid(ggarrange( 
-                    plot1 + theme(legend.position = ''),
-                    plot2 + theme(legend.position = ''),
-                    ncol = 2, widths = c(0.25, 3)),
-          plot_grid(get_legend(plot1), 
-                    get_legend(plot2), 
-                    ncol = 1, align = 'hv'), 
-          ncol = 2, rel_widths = c(5,1))
   plot
 }
-
 
 #heatmap to view gene reference group
-ref_group <- ref_group %>% gather(key = 'gene_id', value = 'value', -cpg)
 heatmap_ref <- function(cpg_name){
   
   cpg <- filter(ref_group, ref_group$cpg %in% cpg_name) %>% 
     mutate(value = factor(as.character(value), levels = as.character(unique(value))), 
            gene_id = factor(as.character(gene_id), levels = as.character(unique(gene_id))), 
            cpg = factor(as.character(cpg), levels = as.character(unique(cpg))))%>% 
-    ggplot(aes(x = gene_id, y = cpg, fill = value)) +
+    ggplot(aes(x = cpg, y = gene_id, fill = value)) +
     geom_tile(color = 'grey') +
     theme_bw() +
     scale_fill_manual(values =c(brewer.pal(n = 3, name = 'PuRd'), # body/exon/tss
                               brewer.pal(n = 6, name = 'BrBG'),
                               'grey', 'grey'),
                     na.value = 'white', 
-                    na.translate = F) +
-    theme(axis.text.x = element_text(angle = 90, 
-                                   vjust = 0,
-                                   hjust = 0), 
-        axis.text.y = element_blank(), 
-        plot.margin = margin(l=-0.6,unit="cm"),
+                    na.translate = F,
+                    labels=c('Absent','Present')) +
+    theme(
+        axis.text.x = element_blank(), 
+        plot.margin = margin(l= -1.8,unit="cm"),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())  +
     scale_x_discrete(expand = c(0,0))+
     labs(x = '', y = '', fill = '')
 cpg
-}
-
-
-```
-
-#heatmap to view DMC test
-##Main function
-```{r}
-#heatmap
-heatmap_DMC_tissue <- function(cpg_name = NULL, gene_name = NULL){
-  if (is.null(cpg_name)){
-  cpg <- heatmap_DMC_gene(gene_name)
-  plot <- heatmap_DMC(cpg)
-  plot
-  }
-  else if (is.null(gene_name)){
-  cpg <- heatmap_DMC_cpg(cpg_name)
-  plot <- heatmap_DMC(cpg)
-  plot
-  }
-  else{
-    gene_data <- heatmap_DMC_gene(gene_name)
-    cpg_data <- heatmap_DMC_cpg(cpg_name)
-    cpg <- merge(gene_data, cpg_data, all = TRUE)
-    plot <- heatmap_DMC(cpg)
-    plot
-  }
-}
-
-```
-
-##prepare data for plot use(cpg input)
-```{r}
-#heatmap to view test result
-heatmap_DMC_cpg <- function(cpg_name){
-
-    cpg <- filter(DMC_alltest, cpg %in% cpg_name)
-  
-    cpg<- select(cpg, cpg, Cell_type, bonferroni,estimate_b)
-    acc <- NULL
-    for (i in 1:nrow(cpg))
-    {
-      if(cpg[i,3] < 0.001 & abs(cpg[i,4]) >0.5)
-      {
-        bool <- 1
-      }
-      else
-      {
-        bool <- 0
-      }
-      acc <- c(acc, bool)
-    }
-    cpg <- mutate(cpg, bool = acc)
-    cpg$cpg <- as.character(cpg$cpg)
-    cpg$cpg <- factor(cpg$cpg, levels = unique(cpg$cpg))
-    cpg$Cell_type <- as.factor(cpg$Cell_type)
-    cpg$bool<- as.factor(cpg$bool)
-cpg
-}
-
-```
-
-##prepare data for plot use(gene input)
-```{r}
-#heatmap
-heatmap_DMC_gene <- function(gene_name){
-
-    #get related cpg sites
-    cpg_name <- fn_cpg(gene_name)
-
-    cpg <- heatmap_cpg(cpg_name)
-    cpg
-}
-```
-
-##ggplot function
-```{r}
-heatmap_DMC <- function(cpg){
-  ggplot(cpg) + 
-  geom_tile(aes(x = cpg, y = Cell_type, fill = bool), colour = 'white') + 
-  labs(y = 'Cell Types', fill ='DMC_alltest Result') + 
-  scale_fill_manual(values=c('Orange','Red'),
-                    labels=c('Insignificant','Significant'))
 }
 ```
 
