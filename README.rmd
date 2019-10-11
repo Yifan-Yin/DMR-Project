@@ -7,3 +7,4 @@ output: github_document
 | :---                 | ---         |
 |shiny_DMR.Rmd         |             |
 |DMC visualisation.Rmd |             |
+|updated_plots.Rmd     | Code for updated plots. October 11, 2019|
