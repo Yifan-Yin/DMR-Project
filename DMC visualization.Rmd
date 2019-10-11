@@ -22,18 +22,20 @@ library(ggpubr)
 #data setup
 ```{r}
 #read cpg annotation info
-anno <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\3_1_annotation.rds')
+basename <- file.path("Z:", "Victor", "Projects", "NIH - cells", "data", "main", "interim")
+
+anno <- readRDS(file.path(basename, '3_1_annotation.rds'))
 ref_group <- anno[, c(1,12:19)]
 anno <- anno[, -12:-19]
 
 #mean and SD data
-stat <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\3_1_betas_cell_mean_sd.rds')
+stat <- readRDS(file.path(basename, '3_1_betas_cell_mean_sd.rds'))
 
 #read cpg methylation data
-beta <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\1_4_betas_noob_filt_XYkeep.rds')
+beta <- readRDS(file.path(basename, '1_4_betas_noob_filt_XYkeep.rds'))
 
 #pData
-pDat <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_3_pDat_contam.rds')
+pDat <- readRDS(file.path(basename, '2_3_pDat_contam.rds'))
 pDat <- pDat %>%
     mutate(Tissue = case_when(
     !(Tissue %in% c('Villi', 'Villi maternal', 'Syncytiotrophoblast')) ~ paste(Tissue, 'cs'),
@@ -43,7 +45,7 @@ pDat <- pDat %>%
     select(Trimester, Tissue, Sentrix)
 
 #color code
-color_code <- readRDS('Z\\Victor\\Projects/NIH - cells\\data\\main\\interim\\2_3_color_code.rds')
+color_code <- readRDS(file.path(basename, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 
