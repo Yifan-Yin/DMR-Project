@@ -36,7 +36,7 @@ ui <- fluidPage(
            br(), # add a space line
            br(), # add a space line
            hr(),#create a horizontal line
-           checkboxGroupInput('checkbox', 'Information in datatable to show', names(anno), selected = c('cpg', "Cell_type" ,'chr','pos','UCSC_RefGene_Name',"Islands_Name" ,"Relation_to_Island" ))
+           checkboxGroupInput('checkbox', 'Information in table to show', names(anno), selected = names(anno)[-9:-11])
           
            ), 
   
@@ -44,33 +44,36 @@ ui <- fluidPage(
   hr(),
   #create a data table to show cpg site information 
   dataTableOutput('info'),
+  #overviewplot
+  plotOutput('overviewplot_tissue'),
   #boxplot that shows tissue and trimester
-  plotOutput('boxplot_tissue'),
-  plotOutput('boxplot_trimester'),
+  plotOutput('boxplot_total'),
   br(),
-  plotOutput('single_plot_tissue'),
-  plotOutput('single_plot_trimester')
+  plotOutput('boxplot_single')
+  
   )
   )
 )
 
 server <- function(input, output, session) {
     #searching list
-    updateSelectizeInput(session = session, inputId = 'name', choices = unique(DMC$cpg), server = TRUE)
+    updateSelectizeInput(session = session, inputId = 'name', choices = cpg$., server = TRUE)
     updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, server = TRUE)
       
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
-    empty_df <- data[0,]
+    empty_df <- anno[0,]
     #related cpg site
     b <- reactive(fn_cpg(event_submit2()))
 
     #cpg site information datatable
     output$info <- DT::renderDataTable(
       { if (input$submit == FALSE) return(DT:: datatable(empty_df, options = list(paging = FALSE, searching = FALSE)))
-        DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE],
+        DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE], options = list(pageLength = 5),
         selection = 'single',
+        rownames = FALSE,
+        
         callback = JS("table.on('click.dt', 'tr',
                   function() {
                   Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
@@ -78,47 +81,31 @@ server <- function(input, output, session) {
        
       }
     )
-    observeEvent(input$all, {output$info <- DT:: renderDataTable(
-      {
-       DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE],
-        selection = 'single',
-        callback = JS("table.on('click.dt', 'tr',
-                  function() {
-                  Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
-                  });"))%>% formatStyle(1, cursor = 'pointer')
-      }
-    )})
-    
+
     #boxplot
     ##retrive cpg name when click the datatable
     event_cpg <- eventReactive(input$info_cell_clicked, {c_info = input$info_cell_clicked
     c_info$value})
   
     #boxplot
-    output$boxplot_tissue <- renderPlot(
+    output$boxplot_total <- renderPlot(
       { 
-        boxplot_tissue_total(cpg_name = event_submit(), gene_name = event_submit2())
+        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2())
       }
     )
-    output$boxplot_trimester <- renderPlot(
-      {
-        boxplot_trimester_total(cpg_name = event_submit(), gene_name = event_submit2())
-      }
-    )
-    output$single_plot_tissue <- renderPlot(
+
+    output$boxplot_single <- renderPlot(
       {
         if (!is.null(event_cpg()))
         {
-          boxplot_tissue_single(event_cpg())
+          boxplot_single(event_cpg())
         }
       }
     )
-    output$single_plot_trimester <- renderPlot(
+
+    output$overviewplot_tissue <- renderPlot(
       {
-        if (!is.null(event_cpg()))
-        {
-          boxplot_trimester_single(event_cpg())
-        }
+        overview_tissue(cpg_name = event_submit(), gene_name = event_submit2())
       }
     )
 
