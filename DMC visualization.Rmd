@@ -42,6 +42,7 @@ betas <- readRDS(file.path(base_path, '3_1_betas_filt.rds'))
 anno <- readRDS(file.path('Z:', 'Victor', 'Repositories', 'EPIC_annotation', 'hg19_epic_annotation.rds'))
 
 
+
 #color code
 color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
@@ -63,23 +64,15 @@ cpg <- cpg[cpg %in% rownames(betas)] %>% as.tibble()
 ##Main function1(produce a single plot when clicking a cpg site name)
 ```{r}
 #boxplots which show beta values based on cell types
-boxplot_tissue_single <- function(cpg_name){
+boxplot_individual_cpg <- function(cpg_name){
   
     #get sample cell types and trimester
     cpg <- sample_info_cpg(cpg_name)
     
     #boxplot
-    boxplot_tissue_individual(cpg)
+    boxplot_trimester(cpg)
 }
-#boxplot which show beta values based on trimester
-boxplot_trimester_single <- function(cpg_name){
-  
-    #get sample cell types and trimester
-    cpg <- sample_info_cpg(cpg_name)
-    
-    #boxplot
-    boxplot_trimester_individual(cpg)
-}
+
 ```
 
 ##Main function2(produce boxplots when having multiple cpg sites)
@@ -179,8 +172,9 @@ boxplot_tissue <- function(cpg, nrow = 3){
       geom_violin()+
       geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
       facet_wrap_paginate(.~cpg, ncol = 7, nrow = nrow)+ 
+      theme_bw()+
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = 'Tissue', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
+      labs(x = ' ', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
   }
   else
   {
@@ -188,21 +182,22 @@ boxplot_tissue <- function(cpg, nrow = 3){
       geom_violin()+
       geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
       facet_wrap_paginate(.~cpg)+ 
+      theme_bw()+
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = 'Tissue', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
+      labs(x = ' ', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
   }
 }
 
 boxplot_trimester <- function(cpg){
   
 
-  ggplot(cpg, aes(x=cpg, y=betas, fill = cpg)) +
+  ggplot(cpg, aes(x=Tissue, y=betas, fill = Tissue)) +
       geom_violin()+
-      geom_jitter(aes(color = Trimester), alpha = 0.5, show.legend = F) +
+      geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
       facet_wrap_paginate(.~Trimester)+ 
-      labs(x = 'Trimester', y ='betas')  +ylim(0,1)+ theme(legend.position="none",axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
+      theme_bw()+
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
+      labs(x = ' ', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
   
 }
 
@@ -211,8 +206,9 @@ boxplot_tissue_individual <- function(cpg){
       geom_violin()+
       geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
       facet_wrap_paginate(.~cpg)+ 
+      theme_bw()+
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = 'Tissue', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
+      labs(x = ' ', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
 }
 
 boxplot_trimester_individual <- function(cpg){
@@ -220,7 +216,8 @@ boxplot_trimester_individual <- function(cpg){
       geom_violin()+
       geom_jitter(aes(color = Trimester), alpha = 0.5, show.legend = F) +
       facet_wrap(.~cpg)+ 
-      labs(x = cpg$cpg, y ='betas')  +ylim(0,1)
+      labs(x = cpg$cpg, y ='betas')  +ylim(0,1)+
+      theme_bw()
 }
 ```
 

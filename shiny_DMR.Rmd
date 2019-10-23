@@ -16,7 +16,7 @@ library(DT)
 ```{r}
 ui <- fluidPage(
   #main title
-  titlePanel("A Tool for Interpreting Differentially Methylated CpG Sites"),
+  titlePanel("Placental Cell Methylome Browser"),
   br(), # create a space line
   br(),
   hr(), #create a line
@@ -45,11 +45,8 @@ ui <- fluidPage(
   plotOutput('plot_cpg', height = '500px'),
   #boxplot that shows tissue and trimester
   plotOutput('boxplot_tissue_total',  height = '500px', width = '95%'),
-  plotOutput('boxplot_trimester_total',  height = '500px', width = '84.5%'),
-  plotOutput('boxplot_tissue_individual', width = '95%'),
-  br(),
-  plotOutput('boxplot_trimester_individual', width = '91.5%')
-  
+  plotOutput('boxplot_trimester_total',  height = '500px', width = '95%'),
+  plotOutput('boxplot_tissue_individual', width = '95%')
   )
   )
 )
@@ -103,15 +100,7 @@ server <- function(input, output, session) {
       {
         if (!is.null(event_cpg()))
         {
-          boxplot_tissue_single(event_cpg())
-        }
-      }
-    )
-    output$boxplot_trimester_individual <- renderPlot(
-      {
-        if (!is.null(event_cpg()))
-        {
-          boxplot_trimester_single(event_cpg())
+          boxplot_individual_cpg(event_cpg())
         }
       }
     )
