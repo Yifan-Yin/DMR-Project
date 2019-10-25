@@ -24,13 +24,19 @@ ui <- fluidPage(
   #UI layout
   sidebarLayout(
   sidebarPanel(
-    
+           #app description
+           code('Description here'),
            #miRNA name input
-           selectizeInput('name', 'CpG Site', choices = NULL,multiple = TRUE,options = list(placeholder='Enter CpG site names' )),
-           #create action button
-  
-           selectizeInput('gene', 'Gene', choices = NULL, multiple = TRUE,options = list(placeholder='Enter a gene name',onInitialize = I('function() { this.setValue(""); }'))),
+           selectizeInput('name', 'CpG Sites', choices = NULL,multiple = TRUE,options = list(placeholder='Enter CpG site names' )),
+           #gene input  
+           selectizeInput('gene', 'Gene', choices = NULL, multiple = FALSE,options = list(placeholder='Enter a gene name',onInitialize = I('function() { this.setValue(""); }'))),
            actionButton("submit", "Submit"),
+           br(),
+           br(),
+           #cpgs related to selected gene
+           selectizeInput('cpg', 'CpGs related to the selected gene', choices = NULL,multiple = TRUE),
+           actionButton('submit2', 'Submit'),
+           
            br(), # add a space line
            br(), # add a space line
            hr(),#create a horizontal line
@@ -42,11 +48,11 @@ ui <- fluidPage(
   hr(),
   #create a data table to show cpg site information 
   div(dataTableOutput('info'), style = "font-size:85%"),
-  plotOutput('plot_cpg', height = '500px'),
+  plotOutput('plot_cpg', height = '650px'),
   #boxplot that shows tissue and trimester
-  plotOutput('boxplot_tissue_total',  height = '500px', width = '95%'),
-  plotOutput('boxplot_trimester_total',  height = '500px', width = '95%'),
-  plotOutput('boxplot_tissue_individual', width = '95%')
+  selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
+  plotOutput('boxplot_total',  height = '650px'),
+  plotOutput('boxplot_individual')
   )
   )
 )
@@ -54,14 +60,12 @@ ui <- fluidPage(
 server <- function(input, output, session) {
     #searching list
     updateSelectizeInput(session = session, inputId = 'name', choices = cpg$value, server = TRUE)
-    updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, server = TRUE)
+    updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, selected = '',server = TRUE)
       
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
     empty_df <- anno[0,]
-    #related cpg site
-    b <- reactive(fn_cpg(event_submit2()))
 
     #cpg site information datatable
     output$info <- DT::renderDataTable(
@@ -77,39 +81,46 @@ server <- function(input, output, session) {
        
       }
     )
+    
+    #gene cpg plots
+    output$plot_cpg <- renderPlot(
+      {
+        stat_plot(cpg_name = event_submit(), gene_name = event_submit2())
+      }
+    )
 
     #boxplot
+    output$boxplot_total <- renderPlot(
+      { 
+        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2(), nrow = (as.numeric(input$num) %/% 7))
+      }
+    )
+    
+    #related cpg site
+    b <- reactive(fn_cpg(event_submit2()))
+    #searching list (cpg sites related to selected gene)
+    observe(
+      {
+    updateSelectizeInput(session = session, inputId = 'cpg', choices = b(), server = TRUE, selected = '')
+        
+      })
     ##retrive cpg name when click the datatable
     event_cpg <- eventReactive(input$info_cell_clicked, {c_info = input$info_cell_clicked
     c_info$value})
-  
-    #boxplot
-    output$boxplot_tissue_total <- renderPlot(
-      { 
-        boxplot_tissue_total(cpg_name = event_submit(), gene_name = event_submit2())
-      }
-    )
-    output$boxplot_trimester_total <- renderPlot(
-      {
-
-          boxplot_trimester_total(cpg_name = event_submit(), gene_name = event_submit2())
-        
-      }
-    )
-    output$boxplot_tissue_individual <- renderPlot(
+    event_submit3 <- eventReactive(input$submit2, {input$cpg})
+    
+    observe(output$boxplot_individual <- renderPlot(
       {
         if (!is.null(event_cpg()))
         {
-          boxplot_individual_cpg(event_cpg())
+          boxplot_individual(event_cpg())
+        }
+        else if(!is.null(event_submit3()))
+        {
+          boxplot_individual(event_submit3())
         }
       }
-    )
-
-    output$plot_cpg <- renderPlot(
-      {
-        plot_cpgs_in_gene(gene = event_submit2())
-      }
-    )
+    ))
 
 }
 shinyApp(ui, server)
