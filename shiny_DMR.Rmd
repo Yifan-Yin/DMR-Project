@@ -6,15 +6,18 @@ output: html_document
 #set up
 ```{r}
 #install.packages('rsconnect')
+#install.packages('shinyjs')
 library(rsconnect)
 library(shiny)
 rsconnect::setAccountInfo(name='yifan7', token='52E1037550A7AA68252579A98EE8AA38', secret='+NlrJysSVZHa5LQQb9slmYRDXExPfjF0QbxMjUH1')
 library(DT)
+library(shinyjs)
 ```
 
 #ui
 ```{r}
 ui <- fluidPage(
+  useShinyjs(),
   #main title
   titlePanel("Placental Cell Methylome Browser"),
   br(), # create a space line
@@ -31,11 +34,13 @@ ui <- fluidPage(
            #gene input  
            selectizeInput('gene', 'Gene', choices = NULL, multiple = FALSE,options = list(placeholder='Enter a gene name',onInitialize = I('function() { this.setValue(""); }'))),
            actionButton("submit", "Submit"),
+           actionButton('reset','Reset'),
            br(),
            br(),
            #cpgs related to selected gene
            selectizeInput('cpg', 'CpGs related to the selected gene', choices = NULL,multiple = TRUE),
            actionButton('submit2', 'Submit'),
+           actionButton('reset2','Reset'),
            
            br(), # add a space line
            br(), # add a space line
@@ -66,18 +71,12 @@ server <- function(input, output, session) {
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
     empty_df <- anno[0,]
-
     #cpg site information datatable
     output$info <- DT::renderDataTable(
       { if (input$submit == FALSE) return(DT:: datatable(empty_df, options = list(paging = FALSE, searching = FALSE)))
         DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE], options = list(pageLength = 5),
         selection = 'single',
-        rownames = FALSE,
-        
-        callback = JS("table.on('click.dt', 'tr',
-                  function() {
-                  Shiny.onInputChange('rows', table.rows('.selected').data().toArray());
-                  });"))%>% formatStyle(1, cursor = 'pointer')
+        rownames = FALSE)%>% formatStyle(1, cursor = 'pointer', color = 'blue')
        
       }
     )
@@ -105,23 +104,30 @@ server <- function(input, output, session) {
         
       })
     ##retrive cpg name when click the datatable
-    event_cpg <- eventReactive(input$info_cell_clicked, {c_info = input$info_cell_clicked
-    c_info$value})
     event_submit3 <- eventReactive(input$submit2, {input$cpg})
-    
-    observe(output$boxplot_individual <- renderPlot(
+    #produce boxplots of selected cpgs
+    observeEvent(input$info_cell_clicked, {c_info = input$info_cell_clicked
+    output$boxplot_individual <- renderPlot(
       {
-        if (!is.null(event_cpg()))
+        if (!is.null(c_info$value))
         {
-          boxplot_individual(event_cpg())
+          boxplot_individual(c_info$value)
         }
         else if(!is.null(event_submit3()))
         {
           boxplot_individual(event_submit3())
         }
       }
-    ))
-
+    )
+    })
+    observeEvent(input$submit2, {output$info <- DT::renderDataTable(DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE], options = list(pageLength = 5),
+        selection = 'single',
+        rownames = FALSE)%>% formatStyle(1, cursor = 'pointer', color = 'blue'))
+    })
+    #reset button
+    observeEvent(input$reset, {reset('name')})
+    observeEvent(input$reset, {reset('gene')})
+    observeEvent(input$reset2,{reset('cpg')})
 }
 shinyApp(ui, server)
 ```
