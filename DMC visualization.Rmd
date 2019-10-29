@@ -23,6 +23,7 @@ library(egg)
 library(ggplot2)
 library(cowplot)
 library(ggforce)
+library(scales)
 ```
 
 
@@ -55,7 +56,7 @@ gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
 gene <- gene[-9,]
 #pull out cpg name for search list use
 cpg <- unique(anno$cpg) 
-cpg <- cpg[cpg %in% rownames(betas)] %>% as.tibble()
+cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
 ```
 
@@ -118,7 +119,10 @@ sample_info_cpg <- function(cpg_name){
     cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
     cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
     }
-    cpg <- cpg %>% left_join(anno, by = 'cpg') %>% arrange(desc(start)) %>% mutate(cpg = factor(cpg, levels = unique(cpg)))
+    cpg <- cpg %>% 
+      left_join(anno, by = 'cpg') %>% 
+      arrange(desc(start)) %>% 
+      mutate(cpg = factor(cpg, levels = unique(cpg)))
     cpg
 }
 
@@ -147,6 +151,7 @@ fn_cpg <- function(gene_name){
 ```
 
 ##ggplot function
+
 ```{r}
 #boxplot function
 boxplot_tissue <- function(cpg, nrow = 3){
@@ -172,16 +177,19 @@ boxplot_tissue <- function(cpg, nrow = 3){
 }
 
 boxplot_trimester <- function(cpg){
-  
-
-  ggplot(cpg, aes(x=Tissue, y=betas, fill = Tissue)) +
-      geom_violin()+
-      geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
-      facet_wrap_paginate(.~Trimester)+ 
-      theme_bw()+
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = ' ', y ='betas') +scale_fill_manual(values = colors) + scale_color_manual(values = colors) + ylim(0,1)
-  
+  ggplot(cpg, aes(x=Trimester, y = betas, fill = Tissue)) +
+    geom_boxplot(outlier.shape = NA)+
+    geom_jitter(aes(color = Tissue), 
+                alpha = 0.9, show.legend = F, 
+                position = position_jitterdodge(jitter.width = 0.05)) +
+    facet_wrap_paginate(.~cpg)+ 
+    theme_bw(base_size = 16)+
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
+          axis.title.y = element_text(angle = 0, vjust = 0.5))+
+    labs(x = ' ', y ='% methylation', fill = '') +
+    scale_y_continuous(labels = scales::percent) +
+    scale_fill_manual(values = colors) +
+    scale_color_manual(values = colors) + ylim(0,1)
 }
 
 ```
@@ -209,7 +217,10 @@ cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
 ##when input only cpgs
 ```{r}
 #datatable which shows cpg annotation
-anno1 <- anno %>% select(cpg,chr,start,end, cpg_id, enhancers_id, genes_id, genes_symbol, genes_tx_id, pmd_id, imprinted_dmr_general, imprinted_dmr_placenta)
+anno1 <- anno %>% 
+  select(cpg, chr, start, end, 
+         cpg_id, enhancers_id, genes_id, genes_symbol, genes_tx_id, pmd_id, 
+         imprinted_dmr_general, imprinted_dmr_placenta)
 
 cpg_info <- function(cpg_name){
 
@@ -238,7 +249,6 @@ cpg_info_gene <- function(gene_name){
 #plots to view mean, sd and annotation
 ##main function
 ```{r}
-
 stat_plot <- function(cpg_name = NULL, gene_name = NULL){
    if (is.null(cpg_name)){
       plot <- plot_cpgs_in_gene(gene_name)
@@ -319,11 +329,14 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
     # cosmetics
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_blank(), 
+          axis.text.y = element_text(size = 12),
+          legend.text = element_text(size = 14),
           axis.ticks.x = element_blank(),
           panel.grid.minor.y = element_blank(),
           panel.grid.major.y = element_blank(),
-          plot.margin=margin(l=-0.1,unit="cm"),
-          axis.title.y = element_text(angle = 0, vjust = 0.5)) +
+          panel.spacing.y = unit(0.5, 'cm'),
+          plot.margin=margin(l=-0.1, unit="cm"),
+          axis.title.y = element_text(angle = 0, vjust = 0.5, size = 14)) +
     scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
     scale_x_discrete(expand = c(0.01,0.01))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)]) +
@@ -375,6 +388,7 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_blank(),
           axis.ticks.x = element_blank(),
+          legend.text = element_text(size = 14),
           legend.key = element_rect(colour = NA), 
           plot.margin = margin(l=-0.1,unit="cm")) +
     scale_y_discrete(expand = c(0,0)) +
@@ -428,6 +442,7 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
           plot.margin = margin(l=-0.1,unit="cm"),
+          legend.text = element_text(size = 14),
           panel.grid = element_blank()) +
     scale_fill_brewer(na.value = '#f7f7f7', breaks = c('1to5kb', 'promoter', '5UTR', 'exon', 
                                                         'intron', 'intronexonboundary', '3UTR',
