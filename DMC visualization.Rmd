@@ -119,34 +119,41 @@ This is the middle plot with all the annotation tracks.
 ```{r}
 stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   
-  
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
-  if (is.null(cpg_name)){
+  if (!is.null(gene_name) & is.null(cpg_name)){
      
     # If a gene symbol is supplied,
     # filter to gene in annotation
-    
     anno_gene <- anno %>%
       filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
              cpg %in% rownames(betas)) %>%
       arrange(desc(start))
     
     # stop if gene symbol is invalid
-    
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
       }
-    } else if (gene_name == ''){
+    } else if (!is.null(cpg_name) & is.null(gene_name)){
       
       # If a cpg is provided,
       # filter annotation to cpgs
-      
       anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
         arrange(chr, desc(start))
+      
+      # stop if no cpgs were found
+      if (nrow(anno_gene) == 0) {
+      stop('None of the selected CpGs exist in our processed data.')
+      }
+      
+      if (length(cpg_name) < length(intersect(cpg_name, rownames(betas)))) {
+        print(paste0('The following selected CpGs do not exist in our processed data:\n', 
+                     setdiff(cpg_name, rownames(betas))))
+      }
+      
     } else {
-      stop('please enter either cpgs or a gene')
+      stop('Enter valid cpg(s) OR one specific gene.')
     }
   
   ######## SETUP INPUT TO PLOTS ###############
