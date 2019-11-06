@@ -120,7 +120,7 @@ This is the middle plot with all the annotation tracks.
 stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
-  if (!is.null(gene_name) & is.null(cpg_name)){
+  if (is.null(cpg_name)){
      
     # If a gene symbol is supplied,
     # filter to gene in annotation
@@ -133,7 +133,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  } else if (!is.null(cpg_name) & is.null(gene_name)){
+  } else if (gene_name == ''){
       
       # If a cpg is provided,
       # filter annotation to cpgs
