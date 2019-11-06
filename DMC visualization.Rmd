@@ -180,6 +180,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
            Trimester_Tissue = paste0(Trimester, ' - ', Tissue))
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
+  font_size <- 12
+  point_size <- 1
+  
   # Generate  methylation track
   p1 <- betas_gene %>%
     ggplot() +
