@@ -276,7 +276,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     facet_wrap(vars(group), ncol = 1) +
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_blank(),
-          axis.ticks.x = element_blank(),
+          axis.ticks = element_blank(),
+          axis.text.y = element_text(vjust = 0.5),
           
           legend.text = element_text(size = 14),
           
@@ -312,7 +313,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     
     # order transcripts by position of start
     arrange(end) %>%
-    mutate(genes_tx_id = factor(genes_tx_id, levels = unique(genes_tx_id))) %>%
+    mutate(genes_tx_id = 
+             factor(genes_tx_id, levels = unique(genes_tx_id)) %>%
+             fct_explicit_na()) %>%
     
     # fill all combinations of cpg and gene_tx_id with NA if missing, so that they show in plot
     complete(cpg, genes_tx_id) %>%
@@ -340,6 +343,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     guides(fill=guide_legend(ncol=2, override.aes = list(alpha=0.7, color = 'black'))) +
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
+          axis.text.y = element_text(vjust = 0.5),
+          axis.ticks = element_blank(),
           
           plot.margin = margin(l=-0.1,unit="cm"),
           
@@ -353,7 +358,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                                                         'intron', 'intronexonboundary', '3UTR',
                                                         'intergenic'),
                       palette = 'Paired', direction = -1) +
-    scale_y_discrete(expand = c(0,0)) +
+    scale_y_discrete(expand = c(0,0), 
+                     labels = function(x)(if_else(x == '(Missing)', '', x))) +
     scale_x_discrete(expand = c(0,0)) +
     coord_cartesian(clip = "off") +
     labs(x = '', y = '', fill = '')
