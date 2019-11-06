@@ -24,16 +24,16 @@ ui <- fluidPage(
   
   #UI layout
   sidebarLayout(
-  sidebarPanel(
+    sidebarPanel(
           
            # relative width out of 12 units
            width = 3,
        
            #app description
            p('Welcome to the Placental Cell Methylome Browser!'),
-           p('Here, you can view the methylation at any CpG covered by the Illumina 
-                EPIC methylation array. We have available Villi, Trophoblast, Hofbaeur cells, 
-                Stromal and Endothelial cell populations.'),
+           p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
+                                                             tags$sup(1), 
+                                                             style = 'color:blue'))),
            hr(),
            
            #cpg name input
@@ -69,7 +69,6 @@ ui <- fluidPage(
                               'Information in table to show', 
                               names(anno1), 
                               selected = names(anno1)[-10:-12])
-          
            ), 
   
   mainPanel(
@@ -91,8 +90,12 @@ ui <- fluidPage(
     #boxplot that shows tissue and trimester
     #selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
     #plotOutput('boxplot_total',  height = '650px'),
-  )
-  )
+    )
+  ),
+  
+  #footer
+  hr(),
+  tags$h6("[1] Only associated CpGs will be displayed when selecting a gene. This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", id = "#footer_1")
 )
 
 server <- function(input, output, session) {
