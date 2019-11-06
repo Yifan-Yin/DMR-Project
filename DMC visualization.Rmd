@@ -50,148 +50,20 @@ color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 
 #list of genes for search list
-gene <- tibble(gene = 
-                 str_split(anno$genes_symbol, ', ') %>%
+gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
                  unique() %>%
-                 na.omit())
+                 na.omit() %>%
+                 sort())
 
 #pull out cpg name for search list use
 cpg <- unique(anno$cpg) 
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
-
 ```
 
-# CpG boxplots
+# 1. datatable which shows cpg annotation
 
-These functions define the individual CpG plots when the user selects specific CpGs.
-
-## Data wrangling functions
-
-These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
-
-### Given a gene symbol, return associated cpg IDs
-
-```{r}
-fn_cpg <- function(gene_name){
-  cpg_name <- anno %>%
-    filter(cpg %in% rownames(betas),
-           grepl(gene_name, genes_symbol)) %>%
-    pull(cpg) %>% 
-    unique()
-  
-  cpg_name
-}
-
-```
-
-### Given cpgs, pull out DNA methylation from betas dataframe
-
-Given a cpg, pull the associated DNA methylation at these cpgs, along with tissue and trimester information.
-
-```{r}
-sample_info_cpg <- function(cpg_name){
-    
-    cpg <- betas[cpg_name,]
-    
-    #when have only one cpg input
-    if (length(cpg_name) ==1){
-    cpg <- as.data.frame(cpg) %>% t()
-    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
-    cpg <- as.data.frame(cpg)
-    colnames(cpg) <- cpg_name
-    cpg <- cpg %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
-    }
-    
-    #when have more than one cpg inputs
-    else{
-    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
-    cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
-    }
-    cpg <- cpg %>% 
-      left_join(anno, by = 'cpg') %>% 
-      arrange(desc(start)) %>% 
-      mutate(cpg = factor(cpg, levels = unique(cpg)))
-    cpg
-}
-```
-
-Given a gene, pull the relevant cpgs, then betas + tissue/trimester information
-
-```{r}
-sample_info_gene <- function(gene_name){
-  #get related cpg sites
-  cpg_name <- fn_cpg(gene_name)
-  #get sample cell types and tri
-  cpg_info <- sample_info_cpg(cpg_name) 
-  cpg_info
-}
-```
-
-## Plot functions
-
-```{r}
-
-boxplot_trimester <- function(cpg){
-  ggplot(cpg, aes(x=Trimester, y = betas, fill = Tissue)) +
-    geom_boxplot(outlier.shape = NA)+
-    geom_jitter(aes(color = Tissue), 
-                alpha = 0.9, show.legend = F, 
-                position = position_jitterdodge(jitter.width = 0.05)) +
-    facet_wrap_paginate(.~cpg)+ 
-    theme_bw(base_size = 16)+
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
-          axis.title.y = element_text(angle = 0, vjust = 0.5))+
-    labs(x = ' ', y ='% methylation', fill = '') +
-    scale_y_continuous(labels = scales::percent) +
-    scale_fill_manual(values = colors) +
-    scale_color_manual(values = colors) + ylim(0,1)
-}
-
-```
-
-## Main function1 (produce a single plot when clicking a cpg site name)
-
-```{r}
-#boxplots which show beta values based on cell types
-boxplot_individual<- function(cpg_name){
-  
-    #get sample cell types and trimester
-    cpg <- sample_info_cpg(cpg_name)
-    
-    #boxplot
-    boxplot_trimester(cpg)
-}
-
-```
-
-## Main function2(produce boxplots when having multiple cpg sites)
-
-```{r}
-#boxplot to show different tissue types
-boxplot_total <- function(cpg_name = NULL, gene_name = NULL, nrow = 3){
-  #when only have gene inputs
-  if(is.null(cpg_name)){
-  cpg <- sample_info_gene(gene_name)
-  }
-  
-  #when only have cpg inputs
-  else if(gene_name ==''){
-  cpg <- sample_info_cpg(cpg_name)  
-  }
-  
-  #when have both cpg and gene input
-  else{
-  stop('please enter either cpgs or a gene')
-  }
-  #boxplot
-  boxplot_tissue(cpg, nrow)
-}
-
-```
-
-#datatable which shows cpg annotation
-##Main function
+## Main function
 
 ```{r}
 #datatable which shows cpg annotation (when inputs have both cpgs and genes)
@@ -237,13 +109,13 @@ cpg_info_gene <- function(gene_name){
   cpg <- filter(anno1, cpg %in% cpg_name)%>% arrange(desc(start))
   cpg
 }
-
-
 ```
 
 
-#plots to view mean, sd and annotation
-##main function
+# 2. Main gene plot
+
+This is the middle plot with all the annotation tracks.
+
 ```{r}
 stat_plot <- function(cpg_name = NULL, gene_name = NULL){
    if (is.null(cpg_name)){
@@ -257,16 +129,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     }
   plot
 }
-```
 
-##gene
-```{r}
 plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
-  # gene is the gene symbol to match plot
-  # betas is the methylation data
-  # pDat is the sample information which includes important group info to plot by
-  # annotation is links cpgs to genes and other cpg annotation to plot
-
+  
   # filter to gene in annotation
   anno_gene <- anno %>%
     filter(grepl(paste0('\\<', gene, '\\>'), genes_symbol),
@@ -328,7 +193,7 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
     theme(axis.text.x = element_blank(), 
           axis.text.y = element_text(size = 12),
           axis.ticks.x = element_blank(),
-          axis.title.y = element_text(angle = 0, vjust = 0.5, size = 14),
+          axis.title.y = element_text(angle = 0, vjust = 1, hjust =1, size = 16),
           
           legend.text = element_text(size = 14),
           
@@ -340,11 +205,11 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
           strip.text = element_text(face = 'bold', hjust = 0),
           
           plot.margin=margin(l=-0.1, unit="cm")) +
-    scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(0, 100), expand = c(0, 0), labels = function(x)paste0(x, '%')) +
     scale_x_discrete(expand = c(0.01,0.01))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
                        guide = guide_legend(override.aes = list(size = 4))) +
-    labs(y = '% methylation', x = '', color = '', title = gene) 
+    labs(y = 'DNA methylation', x = '', color = '', title = gene) 
     
   # plot cpg annotations
   p2 <- betas_gene %>% 
@@ -486,6 +351,7 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
 ```
 
 ##cpg
+
 ```{r}
 plot_cpgs <- function(cpg_name, font_size = 12, point_size = 1) {
   # gene is the gene symbol to match plot
@@ -531,7 +397,8 @@ plot_cpgs <- function(cpg_name, font_size = 12, point_size = 1) {
            Trimester_Tissue = paste0(Trimester, ' - ', Tissue))
     }
     
-  else {betas_gene <- t(betas[anno_gene$cpg,]*100) %>% as_tibble %>% 
+  else {
+    betas_gene <- t(betas[anno_gene$cpg,]*100) %>% as_tibble %>% 
     mutate(Sample_Name = colnames(betas)) %>%
     
     # reshape into longer format
@@ -710,3 +577,91 @@ plot_cpgs <- function(cpg_name, font_size = 12, point_size = 1) {
 }
 ```
 
+# 3. CpG boxplots
+
+These functions define the individual CpG plots when the user selects specific CpGs.
+
+## Data wrangling functions
+
+These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
+
+### Given a gene symbol, return associated cpg IDs
+
+```{r}
+fn_cpg <- function(gene_name){
+  cpg_name <- anno %>%
+    filter(cpg %in% rownames(betas),
+           grepl(gene_name, genes_symbol)) %>%
+    pull(cpg) %>% 
+    unique()
+  
+  cpg_name
+}
+```
+
+### Given cpgs, pull out DNA methylation from betas dataframe
+
+Given a cpg, pull the associated DNA methylation at these cpgs, along with tissue and trimester information.
+
+```{r}
+sample_info_cpg <- function(cpg_name){
+    
+    cpg <- betas[cpg_name,]
+    
+    #when have only one cpg input
+    if (length(cpg_name) ==1){
+    cpg <- as.data.frame(cpg) %>% t()
+    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
+    cpg <- as.data.frame(cpg)
+    colnames(cpg) <- cpg_name
+    cpg <- cpg %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
+    }
+    
+    #when have more than one cpg inputs
+    else{
+    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
+    cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
+    }
+    cpg <- cpg %>% 
+      left_join(anno, by = 'cpg') %>% 
+      arrange(desc(start)) %>% 
+      mutate(cpg = factor(cpg, levels = unique(cpg)))
+    cpg
+}
+```
+
+Given a gene, pull the relevant cpgs, then betas + tissue/trimester information
+
+```{r}
+sample_info_gene <- function(gene_name){
+  #get related cpg sites
+  cpg_name <- fn_cpg(gene_name)
+  #get sample cell types and tri
+  cpg_info <- sample_info_cpg(cpg_name) 
+  cpg_info
+}
+```
+
+## Plot function
+
+```{r}
+#boxplots which show beta values based on cell types
+boxplot_individual<- function(cpg_name){
+  
+    #given cpg, get sample betas, cell type  and trimester
+    cpg <- sample_info_cpg(cpg_name)
+    
+    ggplot(cpg, aes(x=Trimester, y = betas, color = Tissue)) +
+      geom_boxplot(outlier.shape = NA)+
+      geom_jitter(alpha = 0.9, show.legend = F, 
+                  position = position_jitterdodge(jitter.width = 0.05)) +
+      facet_wrap_paginate(.~cpg)+ 
+      theme_bw(base_size = 16)+
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
+            axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0))+
+      labs(x = ' ', y ='DNA\nmethylation', color = '') +
+      scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+      scale_fill_manual(values = colors) +
+      scale_color_manual(values = colors) 
+}
+```
