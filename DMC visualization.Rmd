@@ -345,7 +345,6 @@ plot_cpgs_in_gene <- function(gene, font_size = 12, point_size = 1) {
           strip.text = element_text(face = 'bold', hjust = 0),
           
           plot.margin=margin(l=-0.1, unit="cm")) +
-    coord_cartesian(clip = "off") +
     scale_y_continuous(limits = c(0, 100), expand = c(0, 0)) +
     scale_x_discrete(expand = c(0.01,0.01))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
