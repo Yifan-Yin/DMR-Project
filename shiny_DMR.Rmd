@@ -94,25 +94,37 @@ ui <- fluidPage(
   
   #footer
   hr(),
-  tags$h6("[1] Only associated CpGs will be displayed when selecting a gene. This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", id = "#footer_1")
+  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
+                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
+                id = "#footer_1"))
 )
 
 server <- function(input, output, session) {
     #searching list
-    updateSelectizeInput(session = session, inputId = 'name', choices = cpg$value, server = TRUE)
-    updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, selected = '',server = TRUE)
+    updateSelectizeInput(session = session, inputId = 'name', 
+                         choices = cpg$value, server = TRUE)
+  
+    updateSelectizeInput(session = session, inputId = 'gene', 
+                         choices = gene$gene, selected = '',server = TRUE)
       
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
     empty_df <- anno[0,]
+    
     #cpg site information datatable
-    output$info <- DT::renderDataTable(
-      { if (input$submit == FALSE) return(DT:: datatable(empty_df, options = list(paging = FALSE, searching = FALSE)))
-        DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE], options = list(pageLength = 5),
-        selection = 'single',
-        rownames = FALSE)%>% formatStyle(1, cursor = 'pointer', color = 'blue')
-       
+    output$info <- DT::renderDataTable({ 
+      if (input$submit == FALSE)
+        return(DT:: datatable(empty_df, 
+                              options = list(paging = FALSE, 
+                                             searching = FALSE)))
+      DT::datatable(cpg_info_total(cpg_name = event_submit(), 
+                                   gene_name = event_submit2())[,input$checkbox, 
+                                                                drop = FALSE], 
+                    options = list(pageLength = 5),
+                    selection = 'single',
+                    rownames = FALSE) %>% 
+        formatStyle(1, cursor = 'pointer', color = 'blue')
       }
     )
     
@@ -126,7 +138,9 @@ server <- function(input, output, session) {
     #boxplot
     output$boxplot_total <- renderPlot(
       { 
-        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2(), nrow = (as.numeric(input$num) %/% 7))
+        boxplot_total(cpg_name = event_submit(), 
+                      gene_name = event_submit2(), 
+                      nrow = (as.numeric(input$num) %/% 7))
       }
     )
     
@@ -135,14 +149,23 @@ server <- function(input, output, session) {
     #searching list (cpg sites related to selected gene)
     observe(
       {
-    updateSelectizeInput(session = session, inputId = 'cpg', choices = b(), server = TRUE, selected = '')
+        updateSelectizeInput(session = session, 
+                             inputId = 'cpg', 
+                             choices = b(), 
+                             server = TRUE, 
+                             selected = '')
         
       })
+    
     ##retrive cpg name when click the datatable
     event_submit3 <- eventReactive(input$submit2, {input$cpg})
+    
     #produce boxplots of selected cpgs
-    observeEvent(input$info_cell_clicked, {c_info = input$info_cell_clicked
-    output$boxplot_individual <- renderPlot(
+    observeEvent(input$info_cell_clicked, 
+                 {
+                   c_info = input$info_cell_clicked
+                   
+                   output$boxplot_individual <- renderPlot(
       {
         if (!is.null(c_info$value))
         {
@@ -155,10 +178,21 @@ server <- function(input, output, session) {
       }
     )
     })
-    observeEvent(input$submit2, {output$info <- DT::renderDataTable(DT::datatable(cpg_info_total(cpg_name = event_submit(), gene_name = event_submit2())[,input$checkbox, drop = FALSE], options = list(pageLength = 5),
-        selection = 'single',
-        rownames = FALSE)%>% formatStyle(1, cursor = 'pointer', color = 'blue'))
+    
+    observeEvent(input$submit2, 
+                 {
+                   output$info <- 
+                     DT::renderDataTable(
+                       DT::datatable(
+                         cpg_info_total(
+                           cpg_name = event_submit(), 
+                           gene_name = event_submit2())[,input$checkbox, drop = FALSE], 
+                         options = list(pageLength = 5),
+                         selection = 'single',
+                         rownames = FALSE) %>% 
+                         formatStyle(1, cursor = 'pointer', color = 'blue'))
     })
+    
     #reset button
     observeEvent(input$reset, {reset('name')})
     observeEvent(input$reset, {reset('gene')})
