@@ -50,11 +50,11 @@ color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 
 #list of genes for search list
-gene <- str_split(anno$genes_symbol, ', ') %>%
-  unlist() %>%
-  unique() %>%
-  na.omit() %>%
-  sort()
+gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
+                 unlist() %>%
+                 unique() %>%
+                 na.omit() %>%
+                 sort())
 
 #pull out cpg name for search list use
 cpg <- unique(anno$cpg) 
