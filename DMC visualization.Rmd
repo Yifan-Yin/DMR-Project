@@ -131,35 +131,6 @@ sample_info_gene <- function(gene_name){
 ## Plot functions
 
 ```{r}
-boxplot_tissue <- function(cpg, nrow = 3){
-  
-  # ifelse statement controls size of plots
-  if (length(unique(cpg$cpg)) >7) {
-    ggplot(cpg, aes(x=Tissue, y=betas, fill = Tissue)) +
-      geom_violin()+
-      geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
-      facet_wrap_paginate(.~cpg, ncol = 7, nrow = nrow)+ 
-      theme_bw()+
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = ' ', y ='betas') +
-      scale_fill_manual(values = colors) + 
-      scale_color_manual(values = colors) +
-      ylim(0,1)
-  }
-  else
-  {
-    ggplot(cpg, aes(x=Tissue, y=betas, fill = Tissue)) +
-      geom_violin()+
-      geom_jitter(aes(color = Tissue), alpha = 0.5, show.legend = F) +
-      facet_wrap_paginate(.~cpg)+ 
-      theme_bw()+
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1))+
-      labs(x = ' ', y ='betas') +
-      scale_fill_manual(values = colors) +
-      scale_color_manual(values = colors) + 
-      ylim(0,1)
-  }
-}
 
 boxplot_trimester <- function(cpg){
   ggplot(cpg, aes(x=Trimester, y = betas, fill = Tissue)) +
