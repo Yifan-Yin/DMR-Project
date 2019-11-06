@@ -160,7 +160,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
-  betas_gene <- t(betas[anno_gene$cpg,]*100) %>% as_tibble %>% 
+  betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
     mutate(Sample_Name = colnames(betas)) %>%
     
     # reshape into longer format
