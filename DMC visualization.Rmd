@@ -132,8 +132,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     # stop if gene symbol is invalid
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
-      }
-    } else if (!is.null(cpg_name) & is.null(gene_name)){
+    }
+  } else if (!is.null(cpg_name) & is.null(gene_name)){
       
       # If a cpg is provided,
       # filter annotation to cpgs
@@ -144,7 +144,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
       
       # stop if no cpgs were found
       if (nrow(anno_gene) == 0) {
-      stop('None of the selected CpGs exist in our processed data.')
+        stop('None of the selected CpGs exist in our processed data.')
       }
       
       if (length(cpg_name) < length(intersect(cpg_name, rownames(betas)))) {
@@ -152,9 +152,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                      setdiff(cpg_name, rownames(betas))))
       }
       
-    } else {
+  } else {
       stop('Enter valid cpg(s) OR one specific gene.')
-    }
+  }
   
   ######## SETUP INPUT TO PLOTS ###############
   #
@@ -214,7 +214,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     theme(axis.text.x = element_blank(), 
           axis.text.y = element_text(size = 12),
           axis.ticks.x = element_blank(),
-          axis.title.y = element_text(angle = 0, vjust = 1, hjust =1, size = 16),
+          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
           
           legend.text = element_text(size = 14),
           
@@ -230,7 +230,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     scale_x_discrete(expand = c(0.01,0.01))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
                        guide = guide_legend(override.aes = list(size = 4))) +
-    labs(y = 'DNA methylation', x = '', color = '', title = gene) 
+    labs(y = 'DNA\nmethylation', 
+         x = '', 
+         color = '', 
+         title = if_else(!is.null(gene_name), gene_name, '')) 
     
   # plot cpg annotations
   p2 <- betas_gene %>% 
@@ -366,8 +369,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   p1_h <- 35
   
   # combine tracks plot
-  plot <- ggarrange(p1, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-7), 7, n_trans))
-  plot
+  ggarrange(p1, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-7), 7, n_trans))
   }
 
 ```
