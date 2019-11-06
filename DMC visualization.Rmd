@@ -366,7 +366,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   p1_h <- 35
   
   # combine tracks plot
-  ggarrange(p1, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-7), 7, n_trans))
+  plot <- ggarrange(p1, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-7), 7, n_trans))
+  plot
   }
 
 ```
