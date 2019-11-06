@@ -99,8 +99,11 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
     #searching list
-    updateSelectizeInput(session = session, inputId = 'name', choices = cpg$value, server = TRUE)
-    updateSelectizeInput(session = session, inputId = 'gene', choices = gene$gene, selected = '',server = TRUE)
+    updateSelectizeInput(session = session, inputId = 'name', 
+                         choices = cpg$value, server = TRUE)
+  
+    updateSelectizeInput(session = session, inputId = 'gene', 
+                         choices = gene$gene, selected = '',server = TRUE)
       
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
@@ -126,9 +129,7 @@ server <- function(input, output, session) {
     #boxplot
     output$boxplot_total <- renderPlot(
       { 
-        boxplot_total(cpg_name = event_submit(), 
-                      gene_name = event_submit2(), 
-                      nrow = (as.numeric(input$num) %/% 7))
+        boxplot_total(cpg_name = event_submit(), gene_name = event_submit2(), nrow = (as.numeric(input$num) %/% 7))
       }
     )
     
@@ -137,8 +138,7 @@ server <- function(input, output, session) {
     #searching list (cpg sites related to selected gene)
     observe(
       {
-    updateSelectizeInput(session = session, 
-                         inputId = 'cpg', choices = b(), server = TRUE, selected = '')
+    updateSelectizeInput(session = session, inputId = 'cpg', choices = b(), server = TRUE, selected = '')
         
       })
     ##retrive cpg name when click the datatable
