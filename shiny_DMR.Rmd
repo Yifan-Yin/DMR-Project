@@ -14,7 +14,7 @@ library(DT)
 library(shinyjs)
 ```
 
-#ui
+#shiny
 ```{r}
 ui <- fluidPage(
   useShinyjs(),
@@ -79,12 +79,12 @@ ui <- fluidPage(
     hr(),
     
     # GENE PLOT
-    plotOutput('plot_cpg', height = '650px'),
+    plotOutput('plot_cpg', height = 'auto'),
     
     hr(),
     
     # INDIVIDUAL CPG PLOT
-    plotOutput('boxplot_individual', height = '650px')
+    plotOutput('boxplot_individual')
   
     #boxplot that shows tissue and trimester
     #selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
@@ -128,11 +128,39 @@ server <- function(input, output, session) {
       }
     )
     
+    # find the number of transcripts for selected gene
+    n_trans <- function(gene_name = NULL){
+    anno_gene <- anno %>%
+      filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
+             cpg %in% rownames(betas)) %>%
+      arrange(desc(start))
+    n_trans <- anno_gene$genes_tx_id %>% 
+                str_split(', ') %>% 
+                unlist() %>% 
+                unique %>% 
+                length()
+    n_trans
+}
+    #plot height changes depends on the number of transcripts
+    plotHeight <- reactive({
+      if (n_trans(event_submit2()) > 20)
+      {
+        return(900)
+      }
+      else
+      {
+        return(800)
+      }
+    })
     #gene cpg plots
     output$plot_cpg <- renderPlot(
       {
-        stat_plot(cpg_name = event_submit(), gene_name = event_submit2())
-      }
+        stat_plot(cpg_name = event_submit(), gene_name = event_submit2()) 
+ 
+      },
+      #set plot height depends on the number of transcipts
+      height = plotHeight
+
     )
 
     #boxplot
