@@ -1,0 +1,29 @@
+---
+title: "process_data"
+author: "Victor Yuan"
+date: "06/12/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Some results / data is unnecessarily large. In the interest of saving computation time, and 
+storage space, it will sometimes make sense to filter out unnecessary data, or process into more 
+summarized / compressed forms. This script is to document these types of changes.
+
+# DMCS
+
+Here, dmcs are saved as an excel file. I remove unnecessary columns and save as an RDS file.
+
+these are all DMCs that are significant at bonf < 0.001, and absolute difference beta value > 0.25. See script 2_4_ for more details.
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(here)
+dmcs <- read_excel(file.path("Z:", "Victor", "Projects", "NIH - cells", 
+                             "outs", '2_4_cell_dmcs.xlsx'))
+dmcs %>%
+  select(Trimester, Celltype, cpg) %>%
+  saveRDS(here('data', 'dmcs.rds'))
+```
