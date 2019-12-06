@@ -11,19 +11,60 @@ Some results / data is unnecessarily large. In the interest of saving computatio
 storage space, it will sometimes make sense to filter out unnecessary data, or process into more 
 summarized / compressed forms. This script is to document these types of changes.
 
-# DMCS
+# Annotation
 
-Here, dmcs are saved as an excel file. I remove unnecessary columns and save as an RDS file.
+## Base
 
-these are all DMCs that are significant at bonf < 0.001, and absolute difference beta value > 0.25. See script 2_4_ for more details.
+The annotation that we base our app on is a custom one that I (Victor) created using a couple different databases on packages. In brief, I used the Illumina-provided EPIC annotation for positional information on the hg19 genome build. Then, using the R package annotatr, I added information on cpg islands (UCSC), genes, transcripts (UCSC), and fantom5 enhancers. I used Giulia DG's compiled imprinting DMR list which is based on Courtney Hanna's and Court et al.'s papers. For PMDs, I used DI Schroeder et al. 2013 paper.
+
+```{r}
+# annotation
+anno <- readRDS(file.path('Z:', 'Victor', 'Repositories', 'EPIC_annotation',
+                          'hg19_epic_annotation.rds'))
+
+# remove unnecessary columns
+anno <- anno %>%
+  select(-contains('width'), contains('imprinted_gene'), -group, -genes_gene_id)
+```
+
+## DMCS
+
+Here, dmcs are saved as an excel file. I remove unnecessary columns.
+
+these are all DMCs that are significant at bonf < 0.01, and absolute difference beta value > 0.1. 
 
 ```{r}
 library(tidyverse)
 library(readxl)
 library(here)
-dmcs <- read_excel(file.path("Z:", "Victor", "Projects", "NIH - cells", 
-                             "outs", '2_4_cell_dmcs.xlsx'))
-dmcs %>%
-  select(Trimester, Celltype, cpg) %>%
-  saveRDS(here('data', 'dmcs.rds'))
+
+dmcs <- readRDS(file.path("Z:", "Victor", "Projects", "NIH - cells", 
+                          "data", "main", "interim", '2_4_dmcs.rds'))
+
+dmcs <- dmcs %>%
+  filter(bonferroni < 0.01, abs(delta_b) > 0.1) %>%
+  select(gene, Group1, bonferroni, delta_b) %>%
+  dplyr::rename(cpg = gene) %>%
+  separate(Group1, c('Trimester', 'Tissue'), sep = '\\.') %>%
+  mutate(Tissue = case_when(
+    Tissue == 'Endo_cs' ~ 'Endothelial cs',
+    Tissue == 'Hofb_cs' ~ 'Hofbauer cs',
+    Tissue == 'Strom_cs' ~ 'Stromal cs',
+    Tissue == 'Troph_cs' ~ 'Trophoblasts cs')) 
+
+# widen
+dmcs <- dmcs %>%
+  mutate(sig = (bonferroni < 0.01) & (abs(delta_b) > 0.1)) %>%
+  pivot_wider(id_cols = cpg,
+              names_from = c(Trimester, Tissue),
+              names_sep = '_',
+              values_fill = list(sig = FALSE),
+              values_from = sig)
+
+# join to annotation
+anno <- anno %>% 
+  left_join(dmcs, by = 'cpg') %>% 
+  mutate_if(is.logical, function(x)if_else(is.na(x), FALSE, x)) 
+
+saveRDS(anno, here('data', 'annotation.rds'))
 ```
