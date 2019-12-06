@@ -53,7 +53,11 @@ anno <- anno %>%
 color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
+```
 
+# Generate gene/cpg search list
+
+```{r}
 #list of genes for search list
 gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
@@ -234,9 +238,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     
     # geom_ribbon is to generate the alternating shaded background
     geom_ribbon(aes(x = as.numeric(cpg), ymin = 0, ymax = 25),
-                fill = 'grey', alpha = 0.25)+
+                fill = 'grey', alpha = 0.15)+
     geom_ribbon(aes(x = as.numeric(cpg), ymin = 50, ymax = 75),
-                fill = 'grey', alpha = 0.25)+
+                fill = 'grey', alpha = 0.15)+
     
     # geom_linerange and geom_point is for the actual methylation data
     geom_linerange(alpha = 0.5, size = point_size, 
@@ -258,6 +262,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
           
           panel.grid.minor.y = element_blank(),
           panel.grid.major.y = element_blank(),
+          
           panel.spacing.y = unit(0.5, 'cm'),
           
           strip.background = element_blank(),
