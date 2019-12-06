@@ -66,8 +66,8 @@ ui <- fluidPage(
            hr(),#create a horizontal line
            checkboxGroupInput('checkbox', 
                               'Columns to show in CpG annotation table', 
-                              names(anno1), 
-                              selected = names(anno1)[-10:-12])
+                              choices = column_names, 
+                              selected = column_names[-10:-12])
            ), 
   
   mainPanel(

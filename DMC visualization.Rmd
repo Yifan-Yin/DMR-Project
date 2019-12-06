@@ -44,6 +44,11 @@ betas <- readRDS(file.path(base_path, '3_1_betas_filt.rds'))
 anno <- readRDS(file.path('Z:', 'Victor', 'Repositories', 'EPIC_annotation',
                           'hg19_epic_annotation.rds'))
 
+# REARRANGE AND DROP
+anno <- anno %>% 
+  select(cpg, chr, start, end, 
+         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
+         imprinted_dmr_general, imprinted_dmr_placenta) 
 #color code
 color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
@@ -61,6 +66,35 @@ cpg <- unique(anno$cpg)
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 ```
 
+# Rename column names
+
+For making displayed column names more sensible.
+
+This is a function that renames column names. I apply it to the output of several functions that generate the annotation table.
+
+```{r}
+# rename column names
+rename_columns <- function(x) {
+  dplyr::rename(
+    x,
+    
+    # columns to rename
+    CpG = cpg,
+    Chr = chr,
+    Start = start,
+    End = end,
+    `Relation to CpG Islands` = cpg_id,
+    `Enhancers (FANTOM5)` = enhancers_id,
+    `Gene Symbol` = genes_symbol,
+    `Relation to Transcript Features` = genes_id,
+    `Relation to Transcripts` = genes_tx_id,
+    `Relation to Placental PMD Regions` = pmd_id,
+    `Relation to Imprinted DMRs (general)` = imprinted_dmr_general,
+    `Relation to Imprinted DMRs (placenta)` = imprinted_dmr_placenta
+  )
+}
+```
+
 # 1. datatable which shows cpg annotation
 
 ## Main function
@@ -72,27 +106,31 @@ cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
       info <- cpg_info_gene(gene_name)
     }
     else if (gene_name == ''){
-      info <- cpg_info(cpg_name)
+      info <- cpg_info(cpg_name) 
     }
     else {
       stop('please enter either cpgs or a gene')
     }
     
-  info
+  info %>%
+    rename_columns()
 }
 ```
 
 ##when input only cpgs
 ```{r}
-#datatable which shows cpg annotation
-anno1 <- anno %>% 
+#column names 
+column_names <- anno %>% 
   select(cpg, chr, start, end, 
-         cpg_id, enhancers_id, genes_id, genes_symbol, genes_tx_id, pmd_id, 
-         imprinted_dmr_general, imprinted_dmr_placenta)
+         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
+         imprinted_dmr_general, imprinted_dmr_placenta) %>%
+  rename_columns() %>%
+  names()
+
 
 cpg_info <- function(cpg_name){
 
-  cpg <- filter(anno1, cpg %in% cpg_name) %>% arrange(desc(start))
+  cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
 
 cpg
 }
@@ -106,7 +144,7 @@ cpg_info_gene <- function(gene_name){
   #get cpgs sites related to input genes
   cpg_name <- fn_cpg(gene_name)
   
-  cpg <- filter(anno1, cpg %in% cpg_name)%>% arrange(desc(start))
+  cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
   cpg
 }
 ```
