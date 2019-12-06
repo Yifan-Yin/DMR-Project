@@ -26,6 +26,7 @@ library(ggplot2)
 library(cowplot)
 library(ggforce)
 library(scales)
+library(here)
 ```
 
 # Load data
@@ -41,8 +42,7 @@ pDat <- readRDS(file.path(base_path, '3_1_pDat_filt.rds'))
 betas <- readRDS(file.path(base_path, '3_1_betas_filt.rds'))
 
 # annotation
-anno <- readRDS(file.path('Z:', 'Victor', 'Repositories', 'EPIC_annotation',
-                          'hg19_epic_annotation.rds'))
+anno <- readRDS(here('data', 'annotation.rds'))
 
 # REARRANGE AND DROP
 anno <- anno %>% 
@@ -53,6 +53,9 @@ anno <- anno %>%
 color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
+
+# DMCs
+dmcs <- readRDS(here('data', 'dmcs.rds'))
 ```
 
 # Generate gene/cpg search list
@@ -278,6 +281,12 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
          x = '', 
          color = '', 
          title = if_else(!is.null(gene_name), gene_name, '')) 
+  
+  betas_gene %>%
+    select(cpg) %>%
+    distinct() %>%
+    left_join(dmcs) %>%
+    complete()
     
   # plot cpg annotations
   p2 <- betas_gene %>% 
@@ -286,8 +295,6 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     mutate(# absent/presence for different genomic elements
            enhancer = !is.na(enhancers_id),
            pmd = !is.na(pmd_id),
-           imprinted_gene_placenta = !is.na(imprinted_gene_placenta),
-           imprinted_gene_general = !is.na(imprinted_gene_general),
            imprinted_dmr_general = !is.na(imprinted_dmr_general),
            imprinted_dmr_placenta = !is.na(imprinted_dmr_placenta)) %>%
     mutate_if(is.logical, as.character) %>%
