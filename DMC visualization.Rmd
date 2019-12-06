@@ -247,7 +247,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
            imprinted_dmr_general = !is.na(imprinted_dmr_general),
            imprinted_dmr_placenta = !is.na(imprinted_dmr_placenta)) %>%
     mutate_if(is.logical, as.character) %>%
-    select(cpg, enhancer, pmd, imprinted_gene_general:imprinted_dmr_placenta, cpg_id, start) %>%
+    select(cpg, enhancer, pmd, 
+           imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, start) %>%
     
     # reshape
     pivot_longer(cols = c(-cpg, -start),
@@ -259,21 +260,20 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     arrange(desc(start)) %>%
     mutate(cpg = factor(cpg, levels = unique(cpg)),
            cpg_element = factor(cpg_element, 
-                                levels = c('enhancer', 'pmd', 'imprinted_gene_placenta',
-                                           'imprinted_gene_general', 'imprinted_dmr_general',
+                                levels = c('enhancer', 'pmd', 'imprinted_dmr_general',
                                            'imprinted_dmr_placenta', 'cpg_id')),
            presence = factor(ifelse(presence == "TRUE", 'Present',
                                     ifelse(presence == "FALSE", 'Absent', presence)),
-                             levels = c('Present', 'Absent', ' ', '  ', 
-                                        'sea', 'shelf', 'shore', 'island')),
+                             levels = c('sea', 'shelf', 'shore', 'island',
+                                        'Present', 'Absent', ' ', '  ')),
            # for facet label
            group = 'Annotations') %>%
     
     # plot code
     ggplot(aes(x = cpg, y = cpg_element, fill = presence)) +
-    geom_tile(color = '#969696') +
-    guides(fill=guide_legend(ncol=3, override.aes = list(colour = 'black'))) +
-    facet_wrap(vars(group), ncol = 1) +
+    geom_tile(color = 'white') +
+    guides(fill=guide_legend(ncol=2, override.aes = list(colour = 'white'))) +
+    facet_wrap(vars(group), ncol = 2) +
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_blank(),
           axis.ticks = element_blank(),
@@ -288,8 +288,15 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     scale_fill_manual(values = c('Present' = '#cccccc', 'Absent' = '#f7f7f7', 
                                  ' ' = 'white', '  ' = 'white',
                                  'sea' = '#ffffcc', 'shelf' = '#a1dab4', 'shore' = '#41b6c4',
-                                 'island' = '#225ea8'), drop = T) +
-    scale_y_discrete(expand = c(0,0)) +
+                                 'island' = '#225ea8'), drop = F,
+                      labels = stringr::str_to_title) +
+    scale_y_discrete(expand = c(0,0),
+                     labels = function(x)gsub('cpg_id', 'Relation to CpG Islands',
+                       gsub('imprinted_dmr_placenta', 'Imprinted DMR (Placenta)',
+                       gsub('imprinted_dmr_general', 'Imprinted DMR (General)',
+                       gsub('pmd', 'Placental PMD',
+                       gsub('enhancer', 'Enhancer', 
+                            x)))))) +
     scale_x_discrete(expand = c(0,0)) +
     labs(x = '', y = '', fill = '')
   
@@ -303,22 +310,26 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   # 5UTR / 3UTR, exon / intron, intronexonboundary
   
   p3 <- betas_gene %>% 
-    select(cpg, end, genes_id, genes_tx_id) %>%
+    select(cpg, end, genes_id, genes_tx_id, genes_symbol) %>%
     distinct() %>%
     
     # split comma separate list and put each entry into a new row
     mutate(genes_tx_id = str_split(genes_tx_id, ', '),
-           genes_id = str_split(genes_id, ', ')) %>%
-    unnest(c(genes_tx_id, genes_id)) %>%
+           genes_id = str_split(genes_id, ', '),
+           genes_symbol = str_split(genes_symbol, ', ')) %>%
+    unnest(c(genes_tx_id, genes_id, genes_symbol)) %>%
+    
+    # paste together transcript ID and genes symbol
+    mutate(genes_tx_id_symbol = paste0(genes_tx_id, ' (', genes_symbol, ')')) %>%
     
     # order transcripts by position of start
     arrange(end) %>%
-    mutate(genes_tx_id = 
-             factor(genes_tx_id, levels = unique(genes_tx_id)) %>%
+    mutate(genes_tx_id_symbol = 
+             factor(genes_tx_id_symbol, levels = unique(genes_tx_id_symbol)) %>%
              fct_explicit_na()) %>%
     
     # fill all combinations of cpg and gene_tx_id with NA if missing, so that they show in plot
-    complete(cpg, genes_tx_id) %>%
+    complete(cpg, genes_tx_id_symbol) %>%
     
     # filter out to unique mappings using the priority described above
     # strategy is to order by factor level and take the first occurence
@@ -326,7 +337,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                              levels = c('1to5kb', 'promoter', '5UTR', '3UTR', 'exon',
                                         'intron', 'intronexonboundary', 'intergenic'))) %>%
     
-    group_by(cpg, genes_tx_id) %>%
+    group_by(cpg, genes_tx_id_symbol) %>%
     arrange(genes_id)  %>%
     dplyr::slice(1) %>%
     
@@ -337,10 +348,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
            group = 'Transcripts') %>%
     
     #plot
-    ggplot(aes(x = cpg, y = genes_tx_id, fill = genes_id)) +
-    geom_tile(color = '#969696', alpha = 0.6) +
+    ggplot(aes(x = cpg, y = genes_tx_id_symbol, fill = genes_id)) +
+    geom_tile(color = 'white', alpha = 0.6) +
     facet_wrap(vars(group), ncol = 1) +
-    guides(fill=guide_legend(ncol=2, override.aes = list(alpha=0.7, color = 'black'))) +
+    guides(fill=guide_legend(ncol=1, override.aes = list(alpha=0.7, color = 'white'))) +
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
           axis.text.y = element_text(vjust = 0.5),
