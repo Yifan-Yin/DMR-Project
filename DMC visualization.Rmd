@@ -44,18 +44,10 @@ betas <- readRDS(file.path(base_path, '3_1_betas_filt.rds'))
 # annotation
 anno <- readRDS(here('data', 'annotation.rds'))
 
-# REARRANGE AND DROP
-anno <- anno %>% 
-  select(cpg, chr, start, end, 
-         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
-         imprinted_dmr_general, imprinted_dmr_placenta) 
 #color code
 color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
-
-# DMCs
-dmcs <- readRDS(here('data', 'dmcs.rds'))
 ```
 
 # Generate gene/cpg search list
@@ -281,13 +273,65 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
          x = '', 
          color = '', 
          title = if_else(!is.null(gene_name), gene_name, '')) 
-  
-  betas_gene %>%
-    select(cpg) %>%
-    distinct() %>%
-    left_join(dmcs) %>%
-    complete()
     
+  p_dmc <- betas_gene %>%
+    
+    # tidy data
+    select(cpg, `First_Endothelial cs`:`Third_Trophoblasts cs`) %>%
+    distinct() %>%
+    pivot_longer(cols = -cpg,
+                 names_to = 'Group',
+                 values_to = 'Significant') %>%
+    mutate(facet_title = 'Differential methylation') %>%
+    separate(Group, c('Trimester', 'Tissue'), '_') %>%
+    
+     # convert axes to numeric for geom_path to work
+    mutate(cpg_num = as.numeric(cpg),
+           Tissue_num = as.numeric(as.factor(Tissue)),
+           
+           # Add tissue-specific color when significant
+           Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
+    
+    {
+      ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
+        geom_point(data = . %>% 
+                     filter(!is.na(Significant_num)),size = 2.5) +
+        geom_path(na.rm = TRUE, size = 1) +
+        facet_grid(rows = vars(Trimester),
+                   cols = vars(facet_title),
+                   labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
+                   switch = 'y') +
+        theme_bw(base_size = font_size) +
+        theme(axis.text.x = element_blank(),
+              panel.grid = element_blank(),
+              panel.background = element_rect(fill = '#f7f7f7'),
+              
+              #axis.text.x = element_text(angle = 90, vjust = 0),
+              axis.ticks = element_blank(),
+              axis.text.y = element_text(vjust = 0.5),
+              
+              legend.text = element_text(size = 14),
+              
+              plot.margin = margin(l=-0.1,unit="cm"),
+              plot.background = element_rect(fill = '#f7f7f7'),
+              
+              strip.background = element_blank(),
+              strip.text.y = element_text(face = 'bold', vjust = 0.5, hjust = 0.5, angle = 180),
+              strip.text.x = element_text(face = 'bold', hjust = 0),
+              strip.placement = 'outside') +
+        scale_color_manual(values = color_code_tissue[unique(betas_gene$Tissue)],
+                          na.value = '#f7f7f7',
+                          guide = 'none') +
+        scale_y_continuous(expand = c(0.15,0.15),
+                           breaks = c(1, 2, 3, 4, 5), 
+                           labels = betas_gene$Tissue %>% 
+                             as.factor() %>% 
+                             levels() %>%
+                             gsub(' cs', '', .)) +
+        labs(x = '', y = '')
+      
+    }
+  
   # plot cpg annotations
   p2 <- betas_gene %>% 
     
@@ -447,10 +491,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   n_trans <- betas_gene$genes_tx_id %>% str_split(', ') %>% unlist() %>% unique %>% length()
   
   # size of p1
-  p1_h <- 35
+  p1_h <- 40
   
   # combine tracks plot
-  ggarrange(p1, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-7), 7, n_trans))
+  ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
   }
 
 ```

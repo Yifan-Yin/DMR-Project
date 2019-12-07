@@ -145,11 +145,11 @@ server <- function(input, output, session) {
     plotHeight <- reactive({
       if (n_trans(event_submit2()) > 20)
       {
-        return(900)
+        return(1000)
       }
       else
       {
-        return(800)
+        return(900)
       }
     })
     #gene cpg plots
