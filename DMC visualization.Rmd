@@ -225,7 +225,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
   font_size <- 12
-  point_size <- 1
+  point_size <- 3
+  line_size <- 1.25
   
   # Generate  methylation track
   p1 <- betas_gene %>%
@@ -238,10 +239,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                 fill = 'grey', alpha = 0.15)+
     
     # geom_linerange and geom_point is for the actual methylation data
-    geom_linerange(alpha = 0.5, size = point_size, 
+    geom_linerange(alpha = 0.5, size = line_size, 
                    aes(x = cpg, ymin =lower, ymax = upper, color = Tissue),
                    show.legend = FALSE) +
-    geom_point(alpha = 0.75, aes(x = cpg, y = mean, color = Tissue), size = point_size*2) +
+    geom_point(alpha = 0.75, aes(x = cpg, y = mean, color = Tissue), size = point_size) +
     
     # we want to facet by trimester
     facet_wrap(vars(Trimester), ncol = 1, labeller = label_both) +
@@ -264,7 +265,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
           strip.text = element_text(face = 'bold', hjust = 0),
           
           plot.margin=margin(l=-0.1, unit="cm")) +
-    scale_y_continuous(limits = c(0, 100), expand = c(0, 0), labels = function(x)paste0(x, '%')) +
+    scale_y_continuous(limits = c(0, 100), 
+                       expand = c(0, 0), 
+                       labels = function(x)paste0(x, '%')) +
     scale_x_discrete(expand = c(0.01,0.01))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
                        guide = guide_legend(override.aes = list(size = 4)),
@@ -295,8 +298,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     {
       ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
         geom_point(data = . %>% 
-                     filter(!is.na(Significant_num)),size = 2.5) +
-        geom_path(na.rm = TRUE, size = 1) +
+                     filter(!is.na(Significant_num)), size = point_size) +
+        geom_path(na.rm = TRUE, size = line_size) +
         facet_grid(rows = vars(Trimester),
                    cols = vars(facet_title),
                    labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
