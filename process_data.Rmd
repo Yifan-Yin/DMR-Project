@@ -66,6 +66,10 @@ dmcs <- dmcs %>%
 anno <- anno %>% 
   left_join(dmcs, by = 'cpg') %>% 
   mutate_if(is.logical, function(x)if_else(is.na(x), FALSE, x)) 
+```
 
+# Save data
+
+```{r eval = FALSE}
 saveRDS(anno, here('data', 'annotation.rds'))
 ```
