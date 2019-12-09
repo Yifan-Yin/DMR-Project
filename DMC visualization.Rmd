@@ -29,7 +29,9 @@ library(scales)
 library(here)
 ```
 
-# Load data
+# Setup
+
+## Load data
 
 ```{r}
 # parent directory
@@ -50,22 +52,7 @@ color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 ```
 
-# Generate gene/cpg search list
-
-```{r}
-#list of genes for search list
-gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
-                 unlist() %>%
-                 unique() %>%
-                 na.omit() %>%
-                 sort())
-
-#pull out cpg name for search list use
-cpg <- unique(anno$cpg) 
-cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
-```
-
-# Rename column names
+## Rename column names
 
 For making displayed column names more sensible.
 
@@ -94,6 +81,35 @@ rename_columns <- function(x) {
 }
 ```
 
+## Column names
+
+This is for checkboxGroupInput
+
+```{r}
+#column names 
+column_names <- anno %>% 
+  select(cpg, chr, start, end, 
+         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
+         imprinted_dmr_general, imprinted_dmr_placenta) %>%
+  rename_columns() %>%
+  names()
+```
+
+## Generate gene/cpg search list
+
+```{r}
+#list of genes for search list
+gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
+                 unlist() %>%
+                 unique() %>%
+                 na.omit() %>%
+                 sort())
+
+#pull out cpg name for search list use
+cpg <- unique(anno$cpg) 
+cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
+```
+
 # 1. datatable which shows cpg annotation
 
 ## Main function
@@ -101,11 +117,18 @@ rename_columns <- function(x) {
 ```{r}
 #datatable which shows cpg annotation (when inputs have both cpgs and genes)
 cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
+  
+  
     if (is.null(cpg_name)){
-      info <- cpg_info_gene(gene_name)
+      
+      # when input is gene symbol
+      cpgs <- fn_cpg(gene_name)
+      info <- filter(anno, cpg %in% cpgs)%>% arrange(desc(start))
     }
     else if (gene_name == ''){
-      info <- cpg_info(cpg_name) 
+      
+      # when input are cpg ids
+      info <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
     }
     else {
       stop('please enter either cpgs or a gene')
@@ -115,39 +138,6 @@ cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
     rename_columns()
 }
 ```
-
-##when input only cpgs
-```{r}
-#column names 
-column_names <- anno %>% 
-  select(cpg, chr, start, end, 
-         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
-         imprinted_dmr_general, imprinted_dmr_placenta) %>%
-  rename_columns() %>%
-  names()
-
-
-cpg_info <- function(cpg_name){
-
-  cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
-
-cpg
-}
-```
-
-##when input only genes
-```{r}
-#datatable shows all cpg sites related to input gene
-cpg_info_gene <- function(gene_name){
-
-  #get cpgs sites related to input genes
-  cpg_name <- fn_cpg(gene_name)
-  
-  cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
-  cpg
-}
-```
-
 
 # 2. Main gene/cpg plot with tracks
 
