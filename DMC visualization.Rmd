@@ -20,11 +20,9 @@ library(readr)
 library(tidyverse)
 library(reshape2)
 library(cowplot)
-library(ggpubr)
 library(egg)
 library(ggplot2)
 library(cowplot)
-library(ggforce)
 library(scales)
 library(here)
 ```
@@ -34,20 +32,17 @@ library(here)
 ## Load data
 
 ```{r}
-# parent directory
-base_path <- file.path("Z:", "Victor", "Projects", "NIH - cells", "data", "main", "interim")
-
 # sample data
-pDat <- readRDS(file.path(base_path, '3_1_pDat_filt.rds'))
+pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
 
 # methylation data
-betas <- readRDS(file.path(base_path, '3_1_betas_filt.rds'))
+betas <- readRDS(here::here('data', '3_1_betas_filt.rds'))
 
 # annotation
-anno <- readRDS(here('data', 'annotation.rds'))
+anno <- readRDS(here::here('data', 'annotation.rds'))
 
 #color code
-color_code <- readRDS(file.path(base_path, '2_3_color_code.rds'))
+color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 ```
