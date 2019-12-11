@@ -17,6 +17,8 @@ library(shinyjs)
 #shiny
 ```{r}
 ui <- fluidPage(
+  theme = shinythemes::shinytheme("lumen"),
+  
   useShinyjs(),
   #main title
   titlePanel("Placental Cell Methylome Browser"),
@@ -71,6 +73,7 @@ ui <- fluidPage(
   
   mainPanel(
     hr(),
+    h6("CpG Information. Click on a CpG ID to show a boxplot at the bottom."),
   
     #create a data table to show cpg site information 
     div(dataTableOutput('info'), style = "font-size:85%"),
@@ -116,7 +119,7 @@ server <- function(input, output, session) {
     #produce output when click submit button
     event_submit <- eventReactive(input$submit, {input$name})
     event_submit2 <- eventReactive(input$submit, {input$gene})
-    empty_df <- anno[0,]
+    empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
     
     #cpg site information datatable
     output$info <- DT::renderDataTable({ 
