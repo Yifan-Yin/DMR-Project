@@ -31,9 +31,8 @@ ui <- fluidPage(
        
            #app description
            p('Welcome to the Placental Cell Methylome Browser!'),
-           p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
-                                                             tags$sup(1), 
-                                                             style = 'color:blue'))),
+           p('This app allows visualization of DNA methylation across various placental tissues and cell types.'),
+           p('To start, select CpGs or a gene.'),
            hr(),
            
            #cpg name input
@@ -94,9 +93,11 @@ ui <- fluidPage(
   
   #footer
   hr(),
-  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
-                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
-                id = "#footer_1"))
+  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
+  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
+  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
+  
+  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%."))
 )
 
 server <- function(input, output, session) {
