@@ -546,8 +546,9 @@ ui <- fluidPage(
       
       #app description
       p('Welcome to the Placental Cell Methylome Browser!'),
-      p('This app allows visualization of DNA methylation across various placental tissues and cell types.'),
-      p('To start, select CpGs or a gene.'),
+      p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
+                                                        tags$sup(1), 
+                                                        style = 'color:blue'))),
       hr(),
       
       #cpg name input
@@ -608,140 +609,10 @@ ui <- fluidPage(
   
   #footer
   hr(),
-  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
-  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
-  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
-  
-  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%."))
+  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
+                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
+                id = "#footer_1"))
 )
-
-server <- function(input, output, session) {
-  #searching list
-  updateSelectizeInput(session = session, inputId = 'name', 
-                       choices = cpg$value, server = TRUE)
-  
-  updateSelectizeInput(session = session, inputId = 'gene', 
-                       choices = gene$gene, selected = '',server = TRUE)
-  
-  #produce output when click submit button
-  event_submit <- eventReactive(input$submit, {input$name})
-  event_submit2 <- eventReactive(input$submit, {input$gene})
-  empty_df <- anno[0,]
-  
-  #cpg site information datatable
-  output$info <- DT::renderDataTable({ 
-    if (input$submit == FALSE)
-      return(DT:: datatable(empty_df, 
-                            options = list(paging = FALSE, 
-                                           searching = FALSE)))
-    DT::datatable(cpg_info_total(cpg_name = event_submit(), 
-                                 gene_name = event_submit2())[,input$checkbox, 
-                                                              drop = FALSE], 
-                  options = list(pageLength = 5),
-                  selection = 'single',
-                  rownames = FALSE) %>% 
-      formatStyle(1, cursor = 'pointer', color = 'blue')
-  }
-  )
-  
-  # find the number of transcripts for selected gene
-  n_trans <- function(gene_name = NULL){
-    anno_gene <- anno %>%
-      filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
-             cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
-    n_trans <- anno_gene$genes_tx_id %>% 
-      str_split(', ') %>% 
-      unlist() %>% 
-      unique %>% 
-      length()
-    n_trans
-  }
-  #plot height changes depends on the number of transcripts
-  plotHeight <- reactive({
-    if (n_trans(event_submit2()) > 20)
-    {
-      return(1000)
-    }
-    else
-    {
-      return(900)
-    }
-  })
-  #gene cpg plots
-  output$plot_cpg <- renderPlot(
-    {
-      stat_plot(cpg_name = event_submit(), gene_name = event_submit2()) 
-      
-    },
-    #set plot height depends on the number of transcipts
-    height = plotHeight
-    
-  )
-  
-  #boxplot
-  output$boxplot_total <- renderPlot(
-    { 
-      boxplot_total(cpg_name = event_submit(), 
-                    gene_name = event_submit2(), 
-                    nrow = (as.numeric(input$num) %/% 7))
-    }
-  )
-  
-  #related cpg site
-  b <- reactive(fn_cpg(event_submit2()))
-  #searching list (cpg sites related to selected gene)
-  observe(
-    {
-      updateSelectizeInput(session = session, 
-                           inputId = 'cpg', 
-                           choices = b(), 
-                           server = TRUE, 
-                           selected = '')
-      
-    })
-  
-  ##retrive cpg name when click the datatable
-  event_submit3 <- eventReactive(input$submit2, {input$cpg})
-  
-  #produce boxplots of selected cpgs
-  observeEvent(input$info_cell_clicked, 
-               {
-                 c_info = input$info_cell_clicked
-                 
-                 output$boxplot_individual <- renderPlot(
-                   {
-                     if (!is.null(c_info$value))
-                     {
-                       boxplot_individual(c_info$value)
-                     }
-                     else if(!is.null(event_submit3()))
-                     {
-                       boxplot_individual(event_submit3())
-                     }
-                   }
-                 )
-               })
-  
-  observeEvent(input$submit2, 
-               {
-                 output$info <- 
-                   DT::renderDataTable(
-                     DT::datatable(
-                       cpg_info_total(
-                         cpg_name = event_submit(), 
-                         gene_name = event_submit2())[,input$checkbox, drop = FALSE], 
-                       options = list(pageLength = 5),
-                       selection = 'single',
-                       rownames = FALSE) %>% 
-                       formatStyle(1, cursor = 'pointer', color = 'blue'))
-               })
-  
-  #reset button
-  observeEvent(input$reset, {reset('name')})
-  observeEvent(input$reset, {reset('gene')})
-  observeEvent(input$reset2,{reset('cpg')})
-}
 
 server <- function(input, output, session) {
   #searching list
