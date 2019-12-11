@@ -14,7 +14,7 @@ library(DT)
 library(shinyjs)
 ```
 
-#shiny
+#UI
 ```{r}
 ui <- fluidPage(
   useShinyjs(),
@@ -24,66 +24,100 @@ ui <- fluidPage(
   
   #UI layout
   sidebarLayout(
-    sidebarPanel(
+      sidebarPanel(
           
            # relative width out of 12 units
            width = 3,
        
            #app description
            p('Welcome to the Placental Cell Methylome Browser!'),
-           p('This app allows visualization of DNA methylation across various placental tissues and cell types.'),
-           p('To start, select CpGs or a gene.'),
+           p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
+                                                             tags$sup(1), 
+                                                             style = 'color:blue'))),
            hr(),
            
-           #cpg name input
-           selectizeInput('name', 'CpG Sites', 
-                          choices = NULL,
-                          multiple = TRUE,
-                          options = list(placeholder='Enter CpG site names' )),
-           #gene input  
-           selectizeInput('gene', 'Gene', 
+           #tabset panel
+           tabsetPanel(type = 'tabs', id = 'tabs',
+                       
+           #page of gene input 
+           tabPanel('Gene Input',
+                    #gene search list
+                    selectizeInput('gene_name', 'Gene', 
                           choices = NULL, 
                           multiple = FALSE,
                           options = list(placeholder='Enter a gene name',
                                          onInitialize = I('function() { this.setValue(""); }'))),
+                    #action button to submit and reset input
+                    actionButton("submit_geneInput", "Submit"),
+                    actionButton('reset_geneInput','Reset'),
+                    br(), # add a space line
+                    hr(), # create a horizontal line
            
-           actionButton("submit", "Submit"),
-           actionButton('reset','Reset'),
-           br(), # add a space line
-           hr(), # create a horizontal line
+                    p('If a specific gene is selected, then you can also display specific associated-CpGs'),
            
-           p('If a specific gene is selected, then you can also display specific associated-CpGs'),
-           
-           #cpgs related to selected gene
-           selectizeInput('cpg', 'CpGs related to the selected gene', 
+                    #cpgs search list related to selected gene
+                    selectizeInput('cpg', 'CpGs related to the selected gene', 
                           choices = NULL,
                           multiple = TRUE),
-           actionButton('submit2', 'Submit'),
-           actionButton('reset2','Reset'),
+                    #action button to submit and reset input
+                    actionButton('submit_cpg_geneInput', 'Submit'),
+                    actionButton('reset_cpg_geneInput','Reset')),
+                       
+            #page of cpgs input
+            tabPanel('CpG Input',
+                    #cpg search list
+                    selectizeInput('cpg_name', 'CpG Sites', 
+                          choices = NULL,
+                          multiple = TRUE,
+                          options = list(placeholder='Enter CpG site names' )),
+                    #action button to submit and reset input
+                    actionButton("submit_cpgInput", "Submit"),
+                    actionButton('reset_cpgInput','Reset')),
+                       
+            #page of region input
+                    tabPanel('Region Input',
+                    #chromosome 
+                    selectizeInput('chr','Chromosome',
+                          choices = NULL,
+                          multiple = FALSE,
+                          options = list(placeholder = 'Enter a chromosome')),
+                    #start point
+                    numericInput('start', 'Start', value = NULL),
+                    #end point
+                    numericInput('end', 'End', value = NULL),
+                    
+                    #action button to submit and reset input
+                    actionButton("submit_regionInput", "Submit"),
+                    actionButton('reset_regionInput','Reset')
+                                )
+                       ),
            
+           #create a blank line
            br(),
-           hr(),#create a horizontal line
+           #create a horizontal line
+           hr(),
+           #checkbox to select information shown in datatable
            checkboxGroupInput('checkbox', 
                               'Columns to show in CpG annotation table', 
-                              choices = column_names, 
-                              selected = column_names[-10:-12])
+                              names(anno), 
+                              selected = names(anno)[-10:-12])
            ), 
   
   mainPanel(
     hr(),
-  
+    textOutput('text'),
     #create a data table to show cpg site information 
-    div(dataTableOutput('info'), style = "font-size:85%"),
+    div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
     
     hr(),
     
     # GENE PLOT
-    plotOutput('plot_cpg', height = 'auto'),
+    plotOutput('annoplot'),
     
     hr(),
     
     # INDIVIDUAL CPG PLOT
-    plotOutput('boxplot_individual')
+    plotOutput('boxplot_selectedCpG')
   
     #boxplot that shows tissue and trimester
     #selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
@@ -93,88 +127,79 @@ ui <- fluidPage(
   
   #footer
   hr(),
-  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
-  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
-  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
-  
-  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%."))
+  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
+                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
+                id = "#footer_1"))
 )
 
+
+```
+
+#Server
+```{r}
 server <- function(input, output, session) {
-    #searching list
-    updateSelectizeInput(session = session, inputId = 'name', 
+    #searching list of cpgs
+    updateSelectizeInput(session = session, inputId = 'cpg_name', 
                          choices = cpg$value, server = TRUE)
-  
-    updateSelectizeInput(session = session, inputId = 'gene', 
+    #searching list of genes
+    updateSelectizeInput(session = session, inputId = 'gene_name', 
                          choices = gene$gene, selected = '',server = TRUE)
+    #searching list of chromosome
+    chr <- unique(anno$chr) %>% as.tibble()
+    updateSelectizeInput(session = session, inputId = 'chr',
+                         choices = chr$value, selected = '', server = TRUE)
       
-    #produce output when click submit button
-    event_submit <- eventReactive(input$submit, {input$name})
-    event_submit2 <- eventReactive(input$submit, {input$gene})
-    empty_df <- anno[0,]
+    #get input info when click submit button
+    get_geneInput <- eventReactive(input$submit_geneInput, {input$gene_name})
+    get_cpgInput <- eventReactive(input$submit_cpgInput, {input$cpg_name})
+    ##get_regionInput <- eventReactive(input$submit_regionInput, {})
     
-    #cpg site information datatable
-    output$info <- DT::renderDataTable({ 
-      if (input$submit == FALSE)
+    #reset button
+    observeEvent(input$reset_cpgInput, {reset('cpg_name')})
+    observeEvent(input$reset_geneInput, {reset('gene_name')})
+
+    empty_df <- anno[0,]
+    #datatable to show cpg annotation information 
+    output$dt_anno_cpg <- DT::renderDataTable({ 
+      if (input$submit_geneInput == FALSE & input$submit_cpgInput == FALSE & input$submit_regionInput == FALSE)
         return(DT:: datatable(empty_df, 
                               options = list(paging = FALSE, 
                                              searching = FALSE)))
-      DT::datatable(cpg_info_total(cpg_name = event_submit(), 
-                                   gene_name = event_submit2())[,input$checkbox, 
+      else if(input$tabs == 'Gene Input')
+      {DT::datatable(make_datatable(gene_name = get_geneInput(), cpg_name = NULL)[,input$checkbox, 
                                                                 drop = FALSE], 
                     options = list(pageLength = 5),
                     selection = 'single',
                     rownames = FALSE) %>% 
-        formatStyle(1, cursor = 'pointer', color = 'blue')
+        formatStyle(1, cursor = 'pointer', color = 'blue')}
+      else if(input$tabs == 'CpG Input')
+        {DT::datatable(make_datatable(gene_name = NULL, cpg_name = get_cpgInput())[,input$checkbox, 
+                                                                drop = FALSE], 
+                    options = list(pageLength = 5),
+                    selection = 'single',
+                    rownames = FALSE) %>% 
+        formatStyle(1, cursor = 'pointer', color = 'blue')}
       }
     )
-    
-    # find the number of transcripts for selected gene
-    n_trans <- function(gene_name = NULL){
-    anno_gene <- anno %>%
-      filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
-             cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
-    n_trans <- anno_gene$genes_tx_id %>% 
-                str_split(', ') %>% 
-                unlist() %>% 
-                unique %>% 
-                length()
-    n_trans
-}
-    #plot height changes depends on the number of transcripts
-    plotHeight <- reactive({
-      if (n_trans(event_submit2()) > 20)
-      {
-        return(1000)
-      }
-      else
-      {
-        return(900)
-      }
-    })
+
     #gene cpg plots
-    output$plot_cpg <- renderPlot(
+    output$annoplot <- renderPlot(
       {
-        stat_plot(cpg_name = event_submit(), gene_name = event_submit2()) 
- 
-      },
-      #set plot height depends on the number of transcipts
-      height = plotHeight
-
-    )
-
-    #boxplot
-    output$boxplot_total <- renderPlot(
-      { 
-        boxplot_total(cpg_name = event_submit(), 
-                      gene_name = event_submit2(), 
-                      nrow = (as.numeric(input$num) %/% 7))
+      if(input$tabs == 'Gene Input')
+        {
+        annoPlot_withTracks(cpg_name = NULL, gene_name = get_geneInput())
+          }
+      else if(input$tabs == 'CpG Input')
+        {
+        annoPlot_withTracks(cpg_name = get_cpgInput(), gene_name = NULL)
+          }
+          
       }
+
     )
     
     #related cpg site
-    b <- reactive(fn_cpg(event_submit2()))
+    b <- reactive(find_cpgID(get_geneInput()))
     #searching list (cpg sites related to selected gene)
     observe(
       {
@@ -187,46 +212,31 @@ server <- function(input, output, session) {
       })
     
     ##retrive cpg name when click the datatable
-    event_submit3 <- eventReactive(input$submit2, {input$cpg})
+    get_cpgFromDatable <- eventReactive(input$submit_cpg_gene, {input$cpg})
     
     #produce boxplots of selected cpgs
-    observeEvent(input$info_cell_clicked, 
+    observeEvent(input$dt_anno_cpg_cell_clicked, 
                  {
-                   c_info = input$info_cell_clicked
+                   c_info = input$dt_anno_cpg_cell_clicked
                    
-                   output$boxplot_individual <- renderPlot(
+                   output$boxplot_selectedCpG <- renderPlot(
       {
         if (!is.null(c_info$value))
         {
-          boxplot_individual(c_info$value)
+          boxplot_selected(c_info$value)
         }
-        else if(!is.null(event_submit3()))
+        else if(!is.null(get_cpgFromDatable()))
         {
-          boxplot_individual(event_submit3())
+          boxplot_selected(get_cpgFromDatable())
         }
       }
     )
     })
     
-    observeEvent(input$submit2, 
-                 {
-                   output$info <- 
-                     DT::renderDataTable(
-                       DT::datatable(
-                         cpg_info_total(
-                           cpg_name = event_submit(), 
-                           gene_name = event_submit2())[,input$checkbox, drop = FALSE], 
-                         options = list(pageLength = 5),
-                         selection = 'single',
-                         rownames = FALSE) %>% 
-                         formatStyle(1, cursor = 'pointer', color = 'blue'))
-    })
-    
-    #reset button
-    observeEvent(input$reset, {reset('name')})
-    observeEvent(input$reset, {reset('gene')})
-    observeEvent(input$reset2,{reset('cpg')})
+
+
 }
 shinyApp(ui, server)
+
 ```
 
