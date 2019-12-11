@@ -182,6 +182,20 @@ annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, S
   
   ######## SETUP INPUT TO PLOTS ###############
   #
+  # Title
+  #
+  title <- paste0(
+    unique(anno_gene$chr), ':',
+    min(anno_gene$start), '-',
+    max(anno_gene$start)
+  )
+  
+  if (is.null(cpg_name)){
+    title <- paste0(gene_name, ', ', title)
+  } 
+  
+  
+  #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
   betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
@@ -261,8 +275,13 @@ annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, S
                        labels = function(x)gsub(' cs', '', x)) +
     labs(y = 'DNA\nmethylation', 
          x = '', 
+<<<<<<< HEAD
          color = ''
          ) 
+=======
+         color = '', 
+         title = title) 
+>>>>>>> eccb1306bd35ca13f5edbd235466db21c2df5d7f
     
   p_dmc <- betas_gene %>%
     
@@ -286,7 +305,7 @@ annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, S
       ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
         geom_point(data = . %>% 
                      filter(!is.na(Significant_num)), size = point_size) +
-        geom_path(na.rm = TRUE, size = line_size) +
+        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1) +
         facet_grid(rows = vars(Trimester),
                    cols = vars(facet_title),
                    labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
