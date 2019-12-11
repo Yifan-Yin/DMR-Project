@@ -24,13 +24,10 @@ library(here)
 ```{r}
 # sample data
 pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
-
 # methylation data
 betas <- readRDS(here::here('data', '3_1_betas_filt.rds'))
-
 # annotation
 anno <- readRDS(here::here('data', 'annotation.rds'))
-
 #color code
 color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
@@ -97,42 +94,46 @@ cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
 # 1. datatable which shows cpg annotation
 
-## Main function
-
 ```{r}
-#datatable which shows cpg annotation (when inputs have both cpgs and genes)
-cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
+#produce a datatable which shows cpg annotation
+make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
+  if (!is.null(cpg_name))
+  { #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
+  }
+  else if (!is.null(gene_name))
+  {
+    #get cpg sites related to input genes
+    cpg_name <- find_cpgID(gene_name)
+
+    #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
+  }
   
+  else if (!is.null(Chr) & !is.null(Start) & !is.null(End))
+  {
+  #get cpg sites within a given region
+  cpg_name <- find_cpgFromRegion(Chr, Start, End)
   
-    if (is.null(cpg_name)){
-      
-      # when input is gene symbol
-      cpgs <- fn_cpg(gene_name)
-      info <- filter(anno, cpg %in% cpgs)%>% arrange(desc(start))
-    }
-    else if (gene_name == ''){
-      
-      # when input are cpg ids
-      info <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
-    }
-    else {
-      stop('please enter either cpgs or a gene')
-    }
-    
-  info %>%
-    rename_columns()
+  #get cpg annotation 
+  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
+  }
+
+  anno_cpg
 }
+
+
 ```
+
 
 # 2. Main gene/cpg plot with tracks
 
 This is the middle plot with all the annotation tracks.
-
 ```{r}
-stat_plot <- function(cpg_name = NULL, gene_name = NULL){
+annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
-  if (is.null(cpg_name)){
+  if (!is.null(gene_name)){
      
     # If a gene symbol is supplied,
     # filter to gene in annotation
@@ -145,7 +146,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  } else if (gene_name == ''){
+  } else if (!is.null(cpg_name)){
       
       # If a cpg is provided,
       # filter annotation to cpgs
@@ -164,7 +165,18 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                      setdiff(cpg_name, rownames(betas))))
       }
       
-  } else {
+  }   
+      else if (!is.null(Chr) & !is.null(Start) & !is.null(End)){
+        
+        #get cpg sites within a given region
+        cpg_name <- find_cpgFromRegion(Chr, Start, End)
+        # filter annotation to cpgs
+        anno_gene <- anno %>%
+        filter(cpg %in% cpg_name,
+               cpg %in% rownames(betas)) %>% 
+        arrange(chr, desc(start))
+      }
+      else {
       stop('Enter valid cpg(s) OR one specific gene.')
   }
   
@@ -249,8 +261,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                        labels = function(x)gsub(' cs', '', x)) +
     labs(y = 'DNA\nmethylation', 
          x = '', 
-         color = '', 
-         title = if_else(!is.null(gene_name), gene_name, '')) 
+         color = ''
+         ) 
     
   p_dmc <- betas_gene %>%
     
@@ -490,7 +502,7 @@ These set of functions help extract the relevant information given user input, a
 ### Given a gene symbol, return associated cpg IDs
 
 ```{r}
-fn_cpg <- function(gene_name){
+find_cpgID <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
            grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE)) %>%
@@ -499,6 +511,22 @@ fn_cpg <- function(gene_name){
   
   cpg_name
 }
+```
+### Given a region, return cpgs within it
+```{r}
+find_cpgFromRegion <- function(Chr, Start, End){
+  
+  cpg_name <- anno %>% 
+    filter(chr == Chr, start > Start, end < End) %>%
+    pull(cpg) %>%
+    unique()
+  
+  cpg_name <- cpg_name[cpg_name %in% rownames(betas)]
+  
+  cpg_name
+}
+
+find_cpgFromRegion('chr4', 40439821,40439823)
 ```
 
 ### Given cpgs, pull out DNA methylation from betas dataframe
@@ -532,23 +560,11 @@ sample_info_cpg <- function(cpg_name){
 }
 ```
 
-Given a gene, pull the relevant cpgs, then betas + tissue/trimester information
-
-```{r}
-sample_info_gene <- function(gene_name){
-  #get related cpg sites
-  cpg_name <- fn_cpg(gene_name)
-  #get sample cell types and tri
-  cpg_info <- sample_info_cpg(cpg_name) 
-  cpg_info
-}
-```
-
 ## Plot function
 
 ```{r}
 #boxplots which show beta values based on cell types
-boxplot_individual<- function(cpg_name){
+boxplot_selected<- function(cpg_name){
   
     #given cpg, get sample betas, cell type  and trimester
     cpg <- sample_info_cpg(cpg_name)
