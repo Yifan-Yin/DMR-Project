@@ -1,15 +1,27 @@
+#' ---
+#' title: "DMC_alltest Visualization"
+#' output: html_document
+#' editor_options: 
+#'   chunk_output_type: console
+#' ---
+#' 
+## ----setup, include=FALSE------------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
 
-
-#install.packages('ggforce')
+#' 
+#' #package setup
+#' 
+## ------------------------------------------------------------------------------
 library(tidyverse)
 library(egg)
 library(here)
 
-
-# Setup
-
-## Load data
-
+#' 
+#' # Setup
+#' 
+#' ## Load data
+#' 
+## ------------------------------------------------------------------------------
 # sample data
 pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
 
@@ -24,8 +36,14 @@ color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 
-## Rename column names
-
+#' 
+#' ## Rename column names
+#' 
+#' For making displayed column names more sensible.
+#' 
+#' This is a function that renames column names. I apply it to the output of several functions that generate the annotation table.
+#' 
+## ------------------------------------------------------------------------------
 # rename column names
 rename_columns <- function(x) {
   dplyr::rename(
@@ -47,9 +65,12 @@ rename_columns <- function(x) {
   )
 }
 
-
-## Column names
-
+#' 
+#' ## Column names
+#' 
+#' This is for checkboxGroupInput
+#' 
+## ------------------------------------------------------------------------------
 #column names 
 column_names <- anno %>% 
   select(cpg, chr, start, end, 
@@ -58,10 +79,10 @@ column_names <- anno %>%
   rename_columns() %>%
   names()
 
-
-## Generate gene/cpg search list
-
-
+#' 
+#' ## Generate gene/cpg search list
+#' 
+## ------------------------------------------------------------------------------
 #list of genes for search list
 gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
@@ -73,11 +94,12 @@ gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
 cpg <- unique(anno$cpg) 
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
-
-# 1. datatable which shows cpg annotation
-
-## Main function
-
+#' 
+#' # 1. datatable which shows cpg annotation
+#' 
+#' ## Main function
+#' 
+## ------------------------------------------------------------------------------
 #datatable which shows cpg annotation (when inputs have both cpgs and genes)
 cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
   
@@ -101,8 +123,12 @@ cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
     rename_columns()
 }
 
-# 2. Main gene/cpg plot with tracks
-
+#' 
+#' # 2. Main gene/cpg plot with tracks
+#' 
+#' This is the middle plot with all the annotation tracks.
+#' 
+## ------------------------------------------------------------------------------
 stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
@@ -143,6 +169,20 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   }
   
   ######## SETUP INPUT TO PLOTS ###############
+  #
+  # Title
+  #
+  title <- paste0(
+    unique(anno_gene$chr), ':',
+    min(anno_gene$start), '-',
+    max(anno_gene$start)
+  )
+  
+  if (is.null(cpg_name)){
+    title <- paste0(gene_name, ', ', title)
+  } 
+  
+  
   #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
@@ -224,7 +264,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     labs(y = 'DNA\nmethylation', 
          x = '', 
          color = '', 
-         title = if_else(!is.null(gene_name), gene_name, '')) 
+         title = title) 
   
   p_dmc <- betas_gene %>%
     
@@ -248,7 +288,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
       ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
         geom_point(data = . %>% 
                      filter(!is.na(Significant_num)), size = point_size) +
-        geom_path(na.rm = TRUE, size = line_size) +
+        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1) +
         facet_grid(rows = vars(Trimester),
                    cols = vars(facet_title),
                    labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
@@ -451,11 +491,19 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
 }
 
-# 3. CpG boxplots
 
-## Data wrangling functions
-
-
+#' 
+#' # 3. CpG boxplots
+#' 
+#' These functions define the individual CpG plots when the user selects specific CpGs.
+#' 
+#' ## Data wrangling functions
+#' 
+#' These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
+#' 
+#' ### Given a gene symbol, return associated cpg IDs
+#' 
+## ------------------------------------------------------------------------------
 fn_cpg <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
@@ -466,7 +514,12 @@ fn_cpg <- function(gene_name){
   cpg_name
 }
 
-
+#' 
+#' ### Given cpgs, pull out DNA methylation from betas dataframe
+#' 
+#' Given a cpg, pull the associated DNA methylation at these cpgs, along with tissue and trimester information.
+#' 
+## ------------------------------------------------------------------------------
 sample_info_cpg <- function(cpg_name){
   
   cpg <- betas[cpg_name,]
@@ -492,9 +545,10 @@ sample_info_cpg <- function(cpg_name){
   cpg
 }
 
-
-
-
+#' 
+#' Given a gene, pull the relevant cpgs, then betas + tissue/trimester information
+#' 
+## ------------------------------------------------------------------------------
 sample_info_gene <- function(gene_name){
   #get related cpg sites
   cpg_name <- fn_cpg(gene_name)
@@ -503,6 +557,11 @@ sample_info_gene <- function(gene_name){
   cpg_info
 }
 
+#' 
+#' ## Plot function
+#' 
+## ------------------------------------------------------------------------------
+#boxplots which show beta values based on cell types
 boxplot_individual<- function(cpg_name){
   
   #given cpg, get sample betas, cell type  and trimester
@@ -522,16 +581,27 @@ boxplot_individual<- function(cpg_name){
     scale_color_manual(values = colors) 
 }
 
-####################################### BEGIN SERVER AND UI FUNCTIONS #############################
-
-
+#' ---
+#' title: "shiny_DMR"
+#' output: html_document
+#' ---
+#' 
+#' #set up
+## ------------------------------------------------------------------------------
+#install.packages('rsconnect')
+#install.packages('shinyjs')
 library(rsconnect)
 library(shiny)
 rsconnect::setAccountInfo(name='yifan7', token='52E1037550A7AA68252579A98EE8AA38', secret='+NlrJysSVZHa5LQQb9slmYRDXExPfjF0QbxMjUH1')
 library(DT)
 library(shinyjs)
 
+#' 
+#' #shiny
+## ------------------------------------------------------------------------------
 ui <- fluidPage(
+  theme = shinythemes::shinytheme("lumen"),
+  
   useShinyjs(),
   #main title
   titlePanel("Placental Cell Methylome Browser"),
@@ -546,9 +616,8 @@ ui <- fluidPage(
       
       #app description
       p('Welcome to the Placental Cell Methylome Browser!'),
-      p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
-                                                        tags$sup(1), 
-                                                        style = 'color:blue'))),
+      p('This app allows visualization of DNA methylation across various placental tissues and cell types.'),
+      p('To start, select CpGs or a gene.'),
       hr(),
       
       #cpg name input
@@ -587,6 +656,7 @@ ui <- fluidPage(
     
     mainPanel(
       hr(),
+      h6("CpG Information. Click on a CpG ID to show a boxplot at the bottom."),
       
       #create a data table to show cpg site information 
       div(dataTableOutput('info'), style = "font-size:85%"),
@@ -609,9 +679,16 @@ ui <- fluidPage(
   
   #footer
   hr(),
-  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
-                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
-                id = "#footer_1"))
+  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
+  
+  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
+  
+  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
+  
+  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.")),
+  
+  tags$h6(paste("[5] PMD regions coordinates are taken from D. I. Schroeder et al. 2013."))
+  
 )
 
 server <- function(input, output, session) {
@@ -625,7 +702,7 @@ server <- function(input, output, session) {
   #produce output when click submit button
   event_submit <- eventReactive(input$submit, {input$name})
   event_submit2 <- eventReactive(input$submit, {input$gene})
-  empty_df <- anno[0,]
+  empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
   
   #cpg site information datatable
   output$info <- DT::renderDataTable({ 
@@ -741,5 +818,6 @@ server <- function(input, output, session) {
   observeEvent(input$reset, {reset('gene')})
   observeEvent(input$reset2,{reset('cpg')})
 }
-
 shinyApp(ui, server)
+
+#' 
