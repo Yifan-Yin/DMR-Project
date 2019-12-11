@@ -12,18 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 #package setup
 
 ```{r}
-
-#install.packages('ggforce')
-library(RColorBrewer)
-library(kableExtra)
-library(readr)
 library(tidyverse)
-library(reshape2)
-library(cowplot)
 library(egg)
-library(ggplot2)
-library(cowplot)
-library(scales)
 library(here)
 ```
 
