@@ -557,7 +557,7 @@ boxplot_individual<- function(cpg_name){
       geom_boxplot(outlier.shape = NA)+
       geom_jitter(alpha = 0.9, show.legend = F, 
                   position = position_jitterdodge(jitter.width = 0.05)) +
-      facet_wrap_paginate(.~cpg)+ 
+      facet_wrap(.~cpg)+ 
       theme_bw(base_size = 16)+
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
             axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0))+
