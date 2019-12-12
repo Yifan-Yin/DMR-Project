@@ -12,11 +12,14 @@ library(shiny)
 rsconnect::setAccountInfo(name='yifan7', token='52E1037550A7AA68252579A98EE8AA38', secret='+NlrJysSVZHa5LQQb9slmYRDXExPfjF0QbxMjUH1')
 library(DT)
 library(shinyjs)
+library(shinythemes)
 ```
 
 #UI
 ```{r}
 ui <- fluidPage(
+  theme = shinythemes::shinytheme("lumen"),
+  
   useShinyjs(),
   #main title
   titlePanel("Placental Cell Methylome Browser"),
@@ -105,7 +108,12 @@ ui <- fluidPage(
   
   mainPanel(
     hr(),
+
     textOutput('text'),
+
+    h6("CpG Information. Click on a CpG ID to show a boxplot at the bottom."),
+  
+
     #create a data table to show cpg site information 
     div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
     
@@ -127,9 +135,22 @@ ui <- fluidPage(
   
   #footer
   hr(),
+
   tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
                 "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
-                id = "#footer_1"))
+                id = "#footer_1")),
+
+  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
+  
+  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
+  
+  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
+  
+  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.")),
+  
+  tags$h6(paste("[5] PMD regions coordinates are taken from D. I. Schroeder et al. 2013."))
+  
+
 )
 
 
@@ -149,10 +170,17 @@ server <- function(input, output, session) {
     updateSelectizeInput(session = session, inputId = 'chr',
                          choices = chr$value, selected = '', server = TRUE)
       
+
     #get input info when click submit button
     get_geneInput <- eventReactive(input$submit_geneInput, {input$gene_name})
     get_cpgInput <- eventReactive(input$submit_cpgInput, {input$cpg_name})
     ##get_regionInput <- eventReactive(input$submit_regionInput, {})
+
+    #produce output when click submit button
+    event_submit <- eventReactive(input$submit, {input$name})
+    event_submit2 <- eventReactive(input$submit, {input$gene})
+    empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
+
     
     #reset button
     observeEvent(input$reset_cpgInput, {reset('cpg_name')})
