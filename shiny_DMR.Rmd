@@ -179,6 +179,7 @@ server <- function(input, output, session) {
     observeEvent(input$reset_region_input, {input_value$input_value <- FALSE})
     #reset the inputs when switch between tabs
     observeEvent(input$tabs, {input_value$input_value <- FALSE})
+    observeEvent(input$tabs, reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & reset('end'))
     
     #store inputs into reactive values
     input_value <- reactiveValues(input_value = FALSE)
@@ -261,9 +262,9 @@ server <- function(input, output, session) {
       })
     
     ##retrive cpg name when click the datatable
-    get_cpg_from_dt <- eventReactive(input$submit_cpg_gene, {input$cpg})
+    get_cpg_from_dt <- eventReactive(input$submit_cpg_gene_input, {input$cpg})
     
-    #produce boxplots of selected cpgs
+    #produce boxplots based on the selected cpg from datatable
     observeEvent(input$dt_anno_cpg_cell_clicked, 
                  {
                    c_info = input$dt_anno_cpg_cell_clicked
@@ -281,6 +282,39 @@ server <- function(input, output, session) {
       }
     )
     })
+    #produce boxplots based on the selected cpg using searching box
+    observeEvent(input$submit_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+      {
+        boxplot_selected(get_cpg_from_dt())
+      }
+    )})
+    
+    #reset the input in search box
+    observeEvent(input$reset_cpg_gene_input, {reset('cpg')})
+    #reset the boxplot when click the reset button
+    observeEvent(input$reset_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+      {
+        return()
+      }
+    )})
+    #reset the boxplot when switch between tabs
+    observeEvent(input$tabs, {output$boxplot_selected_cpg <- renderPlot(
+      {
+        return()
+      }
+    )})
+    #reset the boxplot when change into another gene
+    observeEvent(input$submit_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+      {
+        return()
+      }
+    )})
+    observeEvent(input$reset_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+      {
+        return()
+      }
+    )})
+   
     
 }
 
