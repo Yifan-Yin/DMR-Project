@@ -104,7 +104,7 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
   else if (!is.null(gene_name))
   {
     #get cpg sites related to input genes
-    cpg_name <- find_cpgID(gene_name)
+    cpg_name <- find_cpg_ids(gene_name)
 
     #get cpg annotation 
     anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
@@ -113,7 +113,7 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
   else if (!is.null(Chr) & !is.null(Start) & !is.null(End))
   {
   #get cpg sites within a given region
-  cpg_name <- find_cpgFromRegion(Chr, Start, End)
+  cpg_name <- find_cpg_from_region(Chr, Start, End)
   
   #get cpg annotation 
   anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
@@ -130,7 +130,7 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
 
 This is the middle plot with all the annotation tracks.
 ```{r}
-annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
+annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name)){
@@ -169,7 +169,7 @@ annoPlot_withTracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, S
       else if (!is.null(Chr) & !is.null(Start) & !is.null(End)){
         
         #get cpg sites within a given region
-        cpg_name <- find_cpgFromRegion(Chr, Start, End)
+        cpg_name <- find_cpg_from_region(Chr, Start, End)
         # filter annotation to cpgs
         anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
@@ -518,7 +518,7 @@ These set of functions help extract the relevant information given user input, a
 ### Given a gene symbol, return associated cpg IDs
 
 ```{r}
-find_cpgID <- function(gene_name){
+find_cpg_ids <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
            grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE)) %>%
@@ -530,7 +530,7 @@ find_cpgID <- function(gene_name){
 ```
 ### Given a region, return cpgs within it
 ```{r}
-find_cpgFromRegion <- function(Chr, Start, End){
+find_cpg_from_region <- function(Chr, Start, End){
   
   cpg_name <- anno %>% 
     filter(chr == Chr, start > Start, end < End) %>%
@@ -542,7 +542,7 @@ find_cpgFromRegion <- function(Chr, Start, End){
   cpg_name
 }
 
-find_cpgFromRegion('chr4', 40439821,40439823)
+find_cpg_from_region('chr4', 40439821,40439823)
 ```
 
 ### Given cpgs, pull out DNA methylation from betas dataframe
