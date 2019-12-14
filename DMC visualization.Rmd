@@ -93,10 +93,9 @@ cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 ```
 
 # 1. datatable which shows cpg annotation
-
 ```{r}
 #produce a datatable which shows cpg annotation
-make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
+make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50){
   if (!is.null(cpg_name))
   { #get cpg annotation 
     anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
@@ -116,12 +115,11 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
   cpg_name <- find_cpg_from_region(Chr, Start, End)
   
   #get cpg annotation 
-  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
+  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) %>% slice(1:cpg_number)
   }
 
   anno_cpg
 }
-
 
 ```
 
@@ -130,23 +128,38 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
 
 This is the middle plot with all the annotation tracks.
 ```{r}
-annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
+annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50, first_cpg = NULL, end_cpg = NULL){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
-  if (!is.null(gene_name)){
-     
+  if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
+
     # If a gene symbol is supplied,
     # filter to gene in annotation
     anno_gene <- anno %>%
       filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
              cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
+      arrange(desc(start)) %>% slice(1:cpg_number)
     
     # stop if gene symbol is invalid
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  } else if (!is.null(cpg_name)){
+  }
+  else if (!is.null(gene_name) & !is.null(first_cpg) & !is.null(end_cpg)){
+
+    # If a gene symbol is supplied,
+    # filter to gene in annotation
+    anno_gene <- anno %>%
+      filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
+             cpg %in% rownames(betas)) %>%
+      arrange(desc(start)) %>% slice(first_cpg: end_cpg)
+    
+    # stop if gene symbol is invalid
+    if (nrow(anno_gene) == 0) {
+      stop('No cpgs found, maybe they were filtered out.')
+    }
+  }
+  else if (!is.null(cpg_name)){
       
       # If a cpg is provided,
       # filter annotation to cpgs
@@ -174,7 +187,11 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
         anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(start))
+        arrange(chr, desc(start)) %>% slice(1:cpg_number)
+      # stop if no cpgs were found
+      if (nrow(anno_gene) == 0) {
+      stop('No cpgs found in the selected region')
+    }
       }
       else {
       stop('Enter valid cpg(s) OR one specific gene.')
@@ -542,7 +559,6 @@ find_cpg_from_region <- function(Chr, Start, End){
   cpg_name
 }
 
-find_cpg_from_region('chr4', 40439821,40439823)
 ```
 
 ### Given cpgs, pull out DNA methylation from betas dataframe
