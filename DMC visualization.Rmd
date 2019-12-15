@@ -95,7 +95,7 @@ cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 # 1. datatable which shows cpg annotation
 ```{r}
 #produce a datatable which shows cpg annotation
-make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50){
+make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL){
   if (!is.null(cpg_name))
   { #get cpg annotation 
     anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
@@ -115,7 +115,7 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
   cpg_name <- find_cpg_from_region(Chr, Start, End)
   
   #get cpg annotation 
-  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) %>% slice(1:cpg_number)
+  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) 
   }
 
   anno_cpg
@@ -179,7 +179,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
       }
       
   }   
-      else if (!is.null(Chr) & !is.null(Start) & !is.null(End)){
+      else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & is.null(first_cpg) & is.null(end_cpg)){
         
         #get cpg sites within a given region
         cpg_name <- find_cpg_from_region(Chr, Start, End)
@@ -188,6 +188,20 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
         arrange(chr, desc(start)) %>% slice(1:cpg_number)
+      # stop if no cpgs were found
+      if (nrow(anno_gene) == 0) {
+      stop('No cpgs found in the selected region')
+    }
+      }
+      else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
+        
+        #get cpg sites within a given region
+        cpg_name <- find_cpg_from_region(Chr, Start, End)
+        # filter annotation to cpgs
+        anno_gene <- anno %>%
+        filter(cpg %in% cpg_name,
+               cpg %in% rownames(betas)) %>% 
+        arrange(chr, desc(start)) %>% slice(first_cpg : end_cpg)
       # stop if no cpgs were found
       if (nrow(anno_gene) == 0) {
       stop('No cpgs found in the selected region')

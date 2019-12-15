@@ -70,6 +70,8 @@ ui <- fluidPage(
                     #numeric inputs to control the number of cpgs to show
                     numericInput('cpg_number_input', 'CpG number to plot', value = 50),
                     actionButton('submit_cpg_number','Submit'),
+                    br(),
+                    hr(),
                     #numeric inputs to control which sets of cpgs to show
                     numericInput('first_cpg', 'First CpG to plot', value = 1),
                     numericInput('end_cpg', 'End CpG to plot', value = 50),
@@ -101,7 +103,18 @@ ui <- fluidPage(
                     
                     #action button to submit and reset input
                     actionButton("submit_region_input", "Submit"),
-                    actionButton('reset_region_input','Reset')
+                    actionButton('reset_region_input','Reset'),
+                    br(), 
+                    hr(), 
+                    #numeric inputs to control the number of cpgs to show
+                    numericInput('cpg_number_input_region', 'CpG number to plot', value = 50),
+                    actionButton('submit_cpg_number_region','Submit'),
+                    br(),
+                    hr(),
+                    #numeric inputs to control which sets of cpgs to show
+                    numericInput('first_cpg_region', 'First CpG to plot', value = 1),
+                    numericInput('end_cpg_region', 'End CpG to plot', value = 50),
+                    actionButton('submit_cpg_set_region','Submit')
                                 )
                        ),
            
@@ -185,7 +198,7 @@ server <- function(input, output, session) {
     #reset the input and outputs when click the reset button
     observeEvent(input$reset_cpg_input, {reset('cpg_name')})
     observeEvent(input$reset_gene_input, {reset('gene_name') & reset('cpg_number_input') & reset('first_cpg') & reset('end_cpg')})
-    observeEvent(input$reset_region_input, {reset('chr') & reset('start') & reset('end')})
+    observeEvent(input$reset_region_input, {reset('chr') & reset('start') & reset('end')& reset('cpg_number_input_region') & reset('first_cpg_region') & reset('end_cpg_region')})
     observeEvent(input$reset_gene_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_cpg_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_region_input, {input_value$input_value <- FALSE})
@@ -199,9 +212,10 @@ server <- function(input, output, session) {
     #get input values when click the submit button
     observeEvent(input$submit_cpg_input, {input_value$input_value <- input$submit_cpg_input})
     observeEvent(input$submit_gene_input, {input_value$input_value <- input$submit_gene_input})
-    observeEvent(input$submit_gene_input, {reset('cpg_number_input')})
+    observeEvent(input$submit_gene_input, {reset('cpg_number_input')& reset('first_cpg') & reset('end_cpg')})
     observeEvent(input$submit_region_input, {input_value$input_value <- input$submit_region_input})
-  
+    observeEvent(input$submit_region_input, {reset('cpg_number_input_region') & reset('first_cpg_region') & reset('end_cpg_region')})
+    
     ############  datatable output ############
     #make an empty datatable as default
     empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
@@ -267,7 +281,7 @@ server <- function(input, output, session) {
       }
 
     )
-    ############  annoplot output: choose cpg number ############
+    ############  annoplot output: choose cpg number (given a gene input) ############
     #get the input when click submit button
     get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
     get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
@@ -300,14 +314,44 @@ server <- function(input, output, session) {
         }
       )
     })
+    ############  annoplot output: choose cpg number (given a region input) ############
+    #store cpg number into reactive value
+    cpg_number_region <- reactiveValues(cpg_number = 50)
+    #get the cpg number input
+    observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <- input$cpg_number_input_region})
+    #reset cpg number into default(50) when select another gene
+    observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 50})
+    #update the plot when change the cpg number to show
+    observeEvent(input$submit_cpg_number_region, {output$annoplot <- renderPlot(
+      if (input_value$input_value  == FALSE) return()
+      else if(input$tabs == 'Gene Input')
+        {
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), Chr = NULL, Start = NULL, End = NULL)
+        
+      }
+      #output a plot when input cpgs
+      else if(input$tabs == 'CpG Input')
+        {
+        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, Chr = NULL, Start = NULL, End = NULL)
+      }
+      #output a plot when input a region
+      else if(input$tabs == 'Region Input')
+        {
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr(), cpg_number = cpg_number_region$cpg_number)
+        }
+      )
+    })
     
-    ############  annoplot output: choose a cpg set############
+    ############  annoplot output: choose a set of cpg (given a gene input)############
     #store cpg_start and cpg_end into reactive value
     cpg_start <- reactiveValues(cpg_start = 1)
     cpg_end <- reactiveValues(cpg_start = 50)
     #get the cpg set input
     observeEvent(input$submit_cpg_set, {cpg_start$cpg_start <- input$first_cpg
                                         cpg_end$cpg_end <- input$end_cpg})
+    #reset cpg set when select another gene
+    observeEvent(input$submit_gene_input, {cpg_start$cpg_start = 1
+                                           cpg_end$cpg_end = 50})
     #update the plot when change the cpg number to show
     observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
       if (input_value$input_value  == FALSE) return()
@@ -325,6 +369,36 @@ server <- function(input, output, session) {
       else if(input$tabs == 'Region Input')
         {
         annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr())
+        }
+      )
+    })
+    ############  annoplot output: choose a set of cpg (given a region input)############
+        #store cpg_start and cpg_end into reactive value
+    cpg_start_region <- reactiveValues(cpg_start = 1)
+    cpg_end_region <- reactiveValues(cpg_start = 50)
+    #get the cpg set input
+    observeEvent(input$submit_cpg_set_region, {cpg_start_region$cpg_start <- input$first_cpg_region
+                                               cpg_end_region$cpg_end <- input$end_cpg_region})
+    #reset cpg set when select another gene
+    observeEvent(input$submit_region_input, {cpg_start_region$cpg_start = 1
+                                           cpg_end_region$cpg_end = 50})
+    #update the plot when change the cpg number to show
+    observeEvent(input$submit_cpg_set_region, {output$annoplot <- renderPlot(
+      if (input_value$input_value  == FALSE) return()
+      else if(input$tabs == 'Gene Input')
+        {
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), Chr = NULL, Start = NULL, End = NULL)
+        
+      }
+      #output a plot when input cpgs
+      else if(input$tabs == 'CpG Input')
+        {
+        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, Chr = NULL, Start = NULL, End = NULL)
+      }
+      #output a plot when input a region
+      else if(input$tabs == 'Region Input')
+        {
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr(), first_cpg = cpg_start_region$cpg_start, end_cpg = cpg_end_region$cpg_end )
         }
       )
     })
@@ -371,6 +445,7 @@ server <- function(input, output, session) {
       }
     )})
     
+    ############  reset boxplot output ############
     #reset the associated cpg inputs in search box
     observeEvent(input$reset_cpg_gene_input, {reset('cpg')})
     #reset the boxplot when click the reset button
