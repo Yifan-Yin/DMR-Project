@@ -122,11 +122,15 @@ ui <- fluidPage(
            br(),
            #create a horizontal line
            hr(),
+           checkboxGroupInput('checkbox_tissue',
+                              'Cell types to show',
+                              unique(pDat$Tissue),
+                              selected = unique(pDat$Tissue)),
            #checkbox to select information shown in datatable
            checkboxGroupInput('checkbox', 
                               'Columns to show in CpG annotation table', 
                               names(anno), 
-                              selected = names(anno)[-10:-12])
+                              selected = names(anno))
            ), 
   
   mainPanel(
