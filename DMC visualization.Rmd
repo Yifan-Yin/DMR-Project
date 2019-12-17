@@ -128,7 +128,7 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
 
 This is the middle plot with all the annotation tracks.
 ```{r}
-annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50, first_cpg = NULL, end_cpg = NULL){
+annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50, first_cpg = NULL, end_cpg = NULL, Tissue_type = unique(pDat$Tissue)){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -229,7 +229,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
   #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
-  betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
+    betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
     mutate(Sample_Name = colnames(betas)) %>%
     
     # reshape into longer format
@@ -253,7 +253,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
     ungroup() %>%
     arrange(desc(start)) %>%
     mutate(cpg = factor(cpg, levels = unique(cpg)),
-           Trimester_Tissue = paste0(Trimester, ' - ', Tissue))
+           Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
+    filter(Tissue %in% Tissue_type)
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
   font_size <- 12
@@ -356,12 +357,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
               strip.text.y = element_text(face = 'bold', vjust = 0.5, hjust = 0.5, angle = 180),
               strip.text.x = element_text(face = 'bold', hjust = 0),
               strip.placement = 'outside') +
-        scale_color_manual(values = color_code_tissue[unique(betas_gene$Tissue)],
+        scale_color_manual(values = color_code_tissue[unique(pDat$Tissue)],
                           na.value = '#f7f7f7',
                           guide = 'none') +
         scale_y_continuous(expand = c(0.15,0.15),
                            breaks = c(1, 2, 3, 4, 5), 
-                           labels = betas_gene$Tissue %>% 
+                           labels = pDat$Tissue %>% 
                              as.factor() %>% 
                              levels() %>%
                              gsub(' cs', '', .)) +
