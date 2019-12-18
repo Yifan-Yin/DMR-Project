@@ -37,13 +37,12 @@ ui <- fluidPage(
            p('To start, select CpGs or a gene.', span(tags$a(href = '#footer_1', 
                                                              tags$sup(1), 
                                                              style = 'color:blue'))),
-           hr(),
-           
            #tabset panel
            tabsetPanel(type = 'tabs', id = 'tabs',
                        
            #page of gene input 
            tabPanel('Gene Input',
+                    
                     #gene search list
                     selectizeInput('gene_name', 'Gene', 
                           choices = NULL, 
@@ -52,31 +51,7 @@ ui <- fluidPage(
                                          onInitialize = I('function() { this.setValue(""); }'))),
                     #action button to submit and reset input
                     actionButton("submit_gene_input", "Submit"),
-                    actionButton('reset_gene_input','Reset'),
-                    br(), # add a space line
-                    hr(), # create a horizontal line
-           
-                    p('If a specific gene is selected, then you can also display specific associated-CpGs'),
-           
-                    #cpgs search list related to selected gene
-                    selectizeInput('cpg', 'CpGs related to the selected gene', 
-                          choices = NULL,
-                          multiple = TRUE),
-                    #action button to submit and reset input
-                    actionButton('submit_cpg_gene_input', 'Submit'),
-                    actionButton('reset_cpg_gene_input','Reset'),
-                    br(), 
-                    hr(), 
-                    #numeric inputs to control the number of cpgs to show
-                    numericInput('cpg_number_input', 'CpG number to plot', value = 50),
-                    actionButton('submit_cpg_number','Submit'),
-                    br(),
-                    hr(),
-                    #numeric inputs to control which sets of cpgs to show
-                    numericInput('first_cpg', 'First CpG to plot', value = 1),
-                    numericInput('end_cpg', 'End CpG to plot', value = 50),
-                    actionButton('submit_cpg_set','Submit')
-                    ),
+                    actionButton('reset_gene_input','Reset')),
                        
             #page of cpgs input
             tabPanel('CpG Input',
@@ -89,8 +64,8 @@ ui <- fluidPage(
                     actionButton("submit_cpg_input", "Submit"),
                     actionButton('reset_cpg_input','Reset')),
                        
-            #page of region input
-                    tabPanel('Region Input',
+           #page of region input
+           tabPanel('Region Input',
                     #chromosome 
                     selectizeInput('chr','Chromosome',
                           choices = NULL,
@@ -103,62 +78,55 @@ ui <- fluidPage(
                     
                     #action button to submit and reset input
                     actionButton("submit_region_input", "Submit"),
-                    actionButton('reset_region_input','Reset'),
-                    br(), 
-                    hr(), 
-                    #numeric inputs to control the number of cpgs to show
-                    numericInput('cpg_number_input_region', 'CpG number to plot', value = 50),
-                    actionButton('submit_cpg_number_region','Submit'),
-                    br(),
-                    hr(),
-                    #numeric inputs to control which sets of cpgs to show
-                    numericInput('first_cpg_region', 'First CpG to plot', value = 1),
-                    numericInput('end_cpg_region', 'End CpG to plot', value = 50),
-                    actionButton('submit_cpg_set_region','Submit')
-                                )
-                       ),
-           
-           #create a blank line
-           br(),
-           #create a horizontal line
-           hr(),
-           checkboxGroupInput('checkbox_tissue',
-                              'Cell types to show',
-                              unique(pDat$Tissue),
-                              selected = unique(pDat$Tissue)),
-           #checkbox to select information shown in datatable
-           checkboxGroupInput('checkbox', 
-                              'Columns to show in CpG annotation table', 
-                              names(anno), 
-                              selected = names(anno))
-           ), 
+                    actionButton('reset_region_input','Reset')))), 
   
   mainPanel(
-    hr(),
-
-    textOutput('text'),
-
-    h6("CpG Information. Click on a CpG ID to show a boxplot at the bottom."),
-  
-
-    #create a data table to show cpg site information 
-    div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
-    
-    hr(),
-    
-    # GENE PLOT
-    plotOutput('annoplot', height = 900),
-    
-    hr(),
-    
-    # INDIVIDUAL CPG PLOT
-    plotOutput('boxplot_selected_cpg')
-  
-    #boxplot that shows tissue and trimester
-    #selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
-    #plotOutput('boxplot_total',  height = '650px'),
-    )
-  ),
+    tabsetPanel(type = 'tabs',
+                
+                # First tab
+                tabPanel("Browser",
+                         
+                         column(
+                           width = 6,
+                           wellPanel(
+                             checkboxGroupInput('checkbox_tissue',
+                                                'Cell types to show',
+                                                unique(pDat$Tissue),
+                                                selected = unique(pDat$Tissue)))),
+                         
+                         column(
+                           width = 6,
+                           wellPanel(
+                             numericInput('first_cpg', 'First CpG to plot', value = 1),
+                             numericInput('end_cpg', 'End CpG to plot', value = 50),
+                             actionButton('submit_cpg_set','Submit'))),
+                       
+                         hr(),
+                         textOutput('text'),
+                         plotOutput('annoplot', height = 900)),
+                
+                # Second tab
+                tabPanel("CpG annotations",
+                         checkboxGroupInput('checkbox', 
+                                            'Columns to show in CpG annotation table', 
+                                            names(anno), 
+                                            selected = names(anno)),
+                         
+                         div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%")),
+                
+                # Third tab
+                tabPanel("Individual CpG Boxplots",
+                         p('If a specific gene is selected, then you can also display specific associated-CpGs'),
+           
+                         #cpgs search list related to selected gene
+                         selectizeInput('cpg', 'CpGs related to the selected gene',
+                                        choices = NULL,
+                                        multiple = TRUE),
+                          #action button to submit and reset input
+                         actionButton('submit_cpg_gene_input', 'Submit'),
+                         actionButton('reset_cpg_gene_input','Reset'),
+                         
+                         plotOutput('boxplot_selected_cpg'))))),
   
   #footer
   hr(),
@@ -177,7 +145,6 @@ ui <- fluidPage(
   
   tags$h6(paste("[5] PMD regions coordinates are taken from D. I. Schroeder et al. 2013."))
   
-
 )
 
 
