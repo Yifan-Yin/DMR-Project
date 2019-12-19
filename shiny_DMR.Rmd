@@ -16,6 +16,7 @@ library(shinythemes)
 ```
 
 #UI
+
 ```{r}
 ui <- fluidPage(
   theme = shinythemes::shinytheme("lumen"),
@@ -78,9 +79,20 @@ ui <- fluidPage(
                     
                     #action button to submit and reset input
                     actionButton("submit_region_input", "Submit"),
-                    actionButton('reset_region_input','Reset')))), 
+                    actionButton('reset_region_input','Reset'))),
+           
+           br(),
+           hr(),
+           checkboxGroupInput('checkbox',
+                              'Columns to show in CpG annotation table',
+                              names(anno),
+                              inline = FALSE,
+                              selected = names(anno))),
   
   mainPanel(
+    
+    div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
+    
     tabsetPanel(type = 'tabs',
                 
                 # First tab
@@ -106,17 +118,8 @@ ui <- fluidPage(
                          plotOutput('annoplot', height = 900)),
                 
                 # Second tab
-                tabPanel("CpG annotations",
-                         checkboxGroupInput('checkbox', 
-                                            'Columns to show in CpG annotation table', 
-                                            names(anno), 
-                                            selected = names(anno)),
-                         
-                         div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%")),
-                
-                # Third tab
-                tabPanel("Individual CpG Boxplots",
-                         p('If a specific gene is selected, then you can also display specific associated-CpGs'),
+                tabPanel("CpG Boxplots",
+                         p('Show boxplots for specific CpGs:'),
            
                          #cpgs search list related to selected gene
                          selectizeInput('cpg', 'CpGs related to the selected gene',
@@ -126,7 +129,9 @@ ui <- fluidPage(
                          actionButton('submit_cpg_gene_input', 'Submit'),
                          actionButton('reset_cpg_gene_input','Reset'),
                          
-                         plotOutput('boxplot_selected_cpg'))))),
+                         plotOutput('boxplot_selected_cpg')
+                         
+                         )))),
   
   #footer
   hr(),
@@ -450,6 +455,7 @@ server <- function(input, output, session) {
 ```
 
 #Run App
+
 ```{r}
 shinyApp(ui, server)
 ```
