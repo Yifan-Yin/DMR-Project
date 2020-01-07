@@ -118,7 +118,9 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start 
   anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) 
   }
 
-  anno_cpg
+  anno_cpg <- anno_cpg %>% select(cpg, chr, start, end, 
+         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
+         imprinted_dmr_general, imprinted_dmr_placenta)
 }
 
 ```
