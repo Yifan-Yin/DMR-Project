@@ -121,8 +121,8 @@ ui <- fluidPage(
         tabPanel("CpG Boxplots",
                  p('Show boxplots for specific CpGs:'),
                  
-                 #cpgs search list related to selected gene
-                 selectizeInput('cpg', 'CpGs related to the selected gene',
+                 #cpgs search list related to the input
+                 selectizeInput('cpg', 'CpGs related to the input',
                                 choices = NULL,
                                 multiple = TRUE),
                  
@@ -162,17 +162,44 @@ server <- function(input, output, session) {
     updateSelectizeInput(session = session, inputId = 'chr',
                          choices = chr$value, selected = '', server = TRUE)
     
+    #get cpg sites related to the selected gene
+    cpg_related_to_gene <- reactive(find_cpg_ids(get_gene_input()))
+    cpg_related_to_region <- reactive(find_cpg_from_region(Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()))
+    #searching list (cpg sites related to selected gene)
+    observe(
+      { if(input$tabs == 'Gene Input')
+        {updateSelectizeInput(session = session, 
+                             inputId = 'cpg', 
+                             choices = cpg_related_to_gene(), 
+                             server = TRUE, 
+                             selected = '')}
+        else if(input$tabs == 'Region Input')
+        {updateSelectizeInput(session = session, 
+                             inputId = 'cpg', 
+                             choices = cpg_related_to_region(), 
+                             server = TRUE, 
+                             selected = '')}
+        else if(input$tabs == 'CpG Input')
+        {updateSelectizeInput(session = session, 
+                             inputId = 'cpg', 
+                             choices = get_cpg_input(), 
+                             server = TRUE, 
+                             selected = '')}
+        
+        
+      })
+    
     ############  reset button ############  
     #reset the input and outputs when click the reset button
     observeEvent(input$reset_cpg_input, {reset('cpg_name')})
-    observeEvent(input$reset_gene_input, {reset('gene_name') & reset('cpg_number_input') & reset('range_cpg')})
+    observeEvent(input$reset_gene_input, {reset('gene_name') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg')})
     observeEvent(input$reset_region_input, {reset('chr') & reset('start') & reset('end')& reset('cpg_number_input_region')})
     observeEvent(input$reset_gene_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_cpg_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_region_input, {input_value$input_value <- FALSE})
     #reset the input and output when switch between tabs
     observeEvent(input$tabs, {input_value$input_value <- FALSE})
-    observeEvent(input$tabs, reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & reset('end') & reset('cpg_number_input') & reset('range_cpg'))
+    observeEvent(input$tabs, reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & reset('end') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg'))
     
     ############  submit button ############
     #store inputs into reactive values
@@ -180,9 +207,9 @@ server <- function(input, output, session) {
     #get input values when click the submit button
     observeEvent(input$submit_cpg_input, {input_value$input_value <- input$submit_cpg_input})
     observeEvent(input$submit_gene_input, {input_value$input_value <- input$submit_gene_input})
-    observeEvent(input$submit_gene_input, {reset('cpg_number_input')& reset('range_cpg')})
+    observeEvent(input$submit_gene_input, {reset('cpg_number_input')& reset('range_cpg') &reset('cpg')})
     observeEvent(input$submit_region_input, {input_value$input_value <- input$submit_region_input})
-    observeEvent(input$submit_region_input, {reset('cpg_number_input_region')})
+    observeEvent(input$submit_region_input, {reset('cpg_number_input_region') & reset('cpg')})
     
     ############  datatable output ############
     #make an empty datatable as default
@@ -340,19 +367,6 @@ server <- function(input, output, session) {
     })
     
     ############  boxplot output ############
-    #get cpg sites related to the selected gene
-    cpg_related_to_gene <- reactive(find_cpg_ids(get_gene_input()))
-    #searching list (cpg sites related to selected gene)
-    observe(
-      {
-        updateSelectizeInput(session = session, 
-                             inputId = 'cpg', 
-                             choices = cpg_related_to_gene(), 
-                             server = TRUE, 
-                             selected = '')
-        
-      })
-    
     ##retrive cpg name when click the datatable
     get_cpg_from_dt <- eventReactive(input$submit_cpg_gene_input, {input$cpg})
     
