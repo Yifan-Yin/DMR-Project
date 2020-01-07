@@ -16,6 +16,7 @@ library(shinythemes)
 ```
 
 #UI
+
 ```{r}
 ui <- fluidPage(
   theme = shinythemes::shinytheme("lumen"),
@@ -49,7 +50,6 @@ ui <- fluidPage(
                  multiple = FALSE,
                  options = list(placeholder='Enter a gene name',
                                 onInitialize = I('function() { this.setValue(""); }'))),
-
                #action button to submit and reset input
                actionButton("submit_gene_input", "Submit"),
                actionButton('reset_gene_input','Reset')),
@@ -90,9 +90,9 @@ ui <- fluidPage(
       
       checkboxGroupInput('checkbox',
                          'Columns to show in CpG annotation table',
-                         names(anno),
+                         names(anno)[-13:-20],
                          inline = FALSE,
-                         selected = names(anno))),
+                         selected = names(anno)[-13:-20])),
     
     mainPanel(
       div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
@@ -109,27 +109,9 @@ ui <- fluidPage(
                                              unique(pDat$Tissue),
                                              selected = unique(pDat$Tissue)))),
                          
-                         column(
-                           width = 6,
-                           wellPanel(
-                             sliderInput('range_cpg', 'Set of CpG to plot', min = 1, max = 300, value = c(1,50)),
-                             actionButton('submit_cpg_set','Submit'))),
-                       
-                         hr(),
-                         textOutput('text'),
-                         plotOutput('annoplot', height = 900)),
-                
-                # Second tab
-                tabPanel("CpG annotations",
-                         checkboxGroupInput('checkbox', 
-                                            'Columns to show in CpG annotation table', 
-                                            names(anno)[-13:-20], 
-                                            selected = names(anno)[-13:-20]),
-
                  column(width = 6,
                         wellPanel(
-                          numericInput('first_cpg', 'First CpG to plot', value = 1),
-                          numericInput('end_cpg', 'End CpG to plot', value = 50),
+                          sliderInput('range_cpg', 'Set of CpG to plot', min = 1, max = 300, value = c(1,50)),
                           actionButton('submit_cpg_set','Submit'))),
                  hr(),
                  textOutput('text'),
@@ -147,7 +129,6 @@ ui <- fluidPage(
                  #action button to submit and reset input
                  actionButton('submit_cpg_gene_input', 'Submit'),
                  actionButton('reset_cpg_gene_input','Reset'),
-
                          
                  plotOutput('boxplot_selected_cpg')
                          
@@ -164,8 +145,6 @@ ui <- fluidPage(
   tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.")),
   tags$h6(paste("[5] PMD regions coordinates are taken from D. I. Schroeder et al. 2013."))
 )
-
-
 ```
 
 #Server
@@ -249,7 +228,6 @@ server <- function(input, output, session) {
       {
       #return empty when no inputs
       if (input_value$input_value  == FALSE) return()
-
       #output a plot when input a gene
       else if(input$tabs == 'Gene Input')
         {
@@ -268,7 +246,6 @@ server <- function(input, output, session) {
       
           
       }
-
     )
     ############  annoplot output: choose cpg number (given a gene input) ############
     #get the input when click submit button
@@ -434,7 +411,6 @@ server <- function(input, output, session) {
    
     
 }
-
 ```
 
 #Run App
@@ -442,4 +418,3 @@ server <- function(input, output, session) {
 ```{r}
 shinyApp(ui, server)
 ```
-
