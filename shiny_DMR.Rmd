@@ -45,7 +45,7 @@ ui <- fluidPage(
                
                #gene search list
                selectizeInput(
-                 'gene_name', 'Gene',
+                 'gene_name', '',
                  choices = NULL,
                  multiple = FALSE,
                  options = list(placeholder='Enter a gene name',
@@ -58,7 +58,7 @@ ui <- fluidPage(
       tabPanel('CpG Input',
                
                #cpg search list
-               selectizeInput('cpg_name', 'CpG Sites',
+               selectizeInput('cpg_name', '',
                               choices = NULL,
                               multiple = TRUE,
                               options = list(placeholder='Enter CpG site names' )),
@@ -137,7 +137,9 @@ ui <- fluidPage(
   
   
   fluidRow(
-    div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%")),
+    div(dataTableOutput('dt_anno_cpg', width = "98%"), 
+        style = "font-size:85%",
+        align = 'center')),
   
   #footer
   hr(),
