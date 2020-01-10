@@ -23,8 +23,8 @@ ui <- fluidPage(
   
   useShinyjs(),
   #main title
-  titlePanel("Placental Cell Methylome Browser"),
-  hr(), #create a line
+  titlePanel("Welcome to the Placental Cell Methylome Browser!"),
+  p('Scroll down to see detailed instructions.'),
   
   #UI layout
   sidebarLayout(
@@ -33,9 +33,10 @@ ui <- fluidPage(
       # relative width out of 12 units
       width = 3,
       
-      #app description
-      p('Welcome to the Placental Cell Methylome Browser!'),
-      p('To start, select CpGs or a gene.', 
+      tags$h4(
+        tags$strong('Plot input:')),
+      
+      p('Select a gene, specific CpGs, or a genomic region:', 
         span(tags$a(href = '#footer_1', tags$sup(1), style = 'color:blue'))),
       
       tabsetPanel(type = 'tabs', id = 'tabs',
@@ -51,8 +52,8 @@ ui <- fluidPage(
                  options = list(placeholder='Enter a gene name',
                                 onInitialize = I('function() { this.setValue(""); }'))),
                #action button to submit and reset input
-               actionButton("submit_gene_input", "Submit"),
-               actionButton('reset_gene_input','Reset')),
+               actionButton("submit_gene_input", "Plot"),
+               actionButton('reset_gene_input','Clear')),
       
       #page of cpgs input
       tabPanel('CpG Input',
@@ -64,8 +65,8 @@ ui <- fluidPage(
                               options = list(placeholder='Enter CpG site names' )),
                
                #action button to submit and reset input
-               actionButton("submit_cpg_input", "Submit"),
-               actionButton('reset_cpg_input','Reset')),
+               actionButton("submit_cpg_input", "Plot"),
+               actionButton('reset_cpg_input','Clear')),
       
       #page of region input
       tabPanel('Region Input',
@@ -82,27 +83,29 @@ ui <- fluidPage(
                numericInput('end', 'End', value = NULL),
                
                #action button to submit and reset input
-               actionButton("submit_region_input", "Submit"),
-               actionButton('reset_region_input','Reset'))),
+               actionButton("submit_region_input", "Plot"),
+               actionButton('reset_region_input','Clear'))),
       hr(),
       
-      tags$h4('Plot options'),
+      tags$h4(
+        tags$strong('Customize plot output')),
       checkboxGroupInput('checkbox_tissue',
-                         tags$b('Show:'),
-                         unique(pDat$Tissue),
+                         'Show:',
+                         setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
                          selected = unique(pDat$Tissue)),
       
       sliderInput('range_cpg', 
-                  tags$b('Number of CpGs within gene to plot:'),
+                  'Select number of CpGs within gene to plot:',
                   min = 1, max = 300, value = c(1,50)),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
       
-      tags$h4('Annotation table options'),
+      tags$h4(
+        tags$strong('Customize CpG annotation table')),
       
       checkboxGroupInput('checkbox',
-                         tags$b('Columns to show:'),
+                         'Show columns:',
                          names(anno)[-13:-20],
                          inline = FALSE,
                          selected = names(anno)[-13:-20])),
@@ -135,11 +138,15 @@ ui <- fluidPage(
                          
                          )))),
   
-  
+  tags$h3('Annotation Table'),
   fluidRow(
-    div(dataTableOutput('dt_anno_cpg', width = "98%"), 
-        style = "font-size:85%",
-        align = 'center')),
+    
+    
+    
+    div(
+      dataTableOutput('dt_anno_cpg', width = "98%"), 
+      style = "font-size:85%",
+      align = 'center')),
   
   #footer
   hr(),
