@@ -84,12 +84,25 @@ ui <- fluidPage(
                #action button to submit and reset input
                actionButton("submit_region_input", "Submit"),
                actionButton('reset_region_input','Reset'))),
-           
+      hr(),
+      
+      tags$h4('Plot options'),
+      checkboxGroupInput('checkbox_tissue',
+                         tags$b('Show:'),
+                         unique(pDat$Tissue),
+                         selected = unique(pDat$Tissue)),
+      
+      sliderInput('range_cpg', 
+                  tags$b('Number of CpGs within gene to plot:'),
+                  min = 1, max = 300, value = c(1,50)),
+      actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
       
+      tags$h4('Annotation table options'),
+      
       checkboxGroupInput('checkbox',
-                         'Columns to show in CpG annotation table',
+                         tags$b('Columns to show:'),
                          names(anno)[-13:-20],
                          inline = FALSE,
                          selected = names(anno)[-13:-20])),
@@ -101,18 +114,7 @@ ui <- fluidPage(
         # First tab
         tabPanel("Browser",
                  
-                 column(width = 6,
-                        wellPanel(
-                          checkboxGroupInput('checkbox_tissue',
-                                             'Cell types to show',
-                                             unique(pDat$Tissue),
-                                             selected = unique(pDat$Tissue)))),
-                         
-                 column(width = 6,
-                        wellPanel(
-                          sliderInput('range_cpg', 'Set of CpG to plot', min = 1, max = 300, value = c(1,50)),
-                          actionButton('submit_cpg_set','Submit'))),
-                 hr(),
+                 br(),
                  textOutput('text'),
                  plotOutput('annoplot', height = 900)),
         
