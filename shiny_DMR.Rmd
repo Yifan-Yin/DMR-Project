@@ -23,8 +23,8 @@ ui <- fluidPage(
   
   useShinyjs(),
   #main title
-  titlePanel("Placental Cell Methylome Browser"),
-  hr(), #create a line
+  titlePanel("Welcome to the Placental Cell Methylome Browser!"),
+  p('Scroll down to see detailed instructions.'),
   
   #UI layout
   sidebarLayout(
@@ -33,9 +33,10 @@ ui <- fluidPage(
       # relative width out of 12 units
       width = 3,
       
-      #app description
-      p('Welcome to the Placental Cell Methylome Browser!'),
-      p('To start, select CpGs or a gene.', 
+      tags$h4(
+        tags$strong('Plot input:')),
+      
+      p('Select a gene, specific CpGs, or a genomic region:', 
         span(tags$a(href = '#footer_1', tags$sup(1), style = 'color:blue'))),
       
       tabsetPanel(type = 'tabs', id = 'tabs',
@@ -45,27 +46,27 @@ ui <- fluidPage(
                
                #gene search list
                selectizeInput(
-                 'gene_name', 'Gene',
+                 'gene_name', '',
                  choices = NULL,
                  multiple = FALSE,
                  options = list(placeholder='Enter a gene name',
                                 onInitialize = I('function() { this.setValue(""); }'))),
                #action button to submit and reset input
-               actionButton("submit_gene_input", "Submit"),
-               actionButton('reset_gene_input','Reset')),
+               actionButton("submit_gene_input", "Plot"),
+               actionButton('reset_gene_input','Clear')),
       
       #page of cpgs input
       tabPanel('CpG Input',
                
                #cpg search list
-               selectizeInput('cpg_name', 'CpG Sites',
+               selectizeInput('cpg_name', '',
                               choices = NULL,
                               multiple = TRUE,
                               options = list(placeholder='Enter CpG site names' )),
                
                #action button to submit and reset input
-               actionButton("submit_cpg_input", "Submit"),
-               actionButton('reset_cpg_input','Reset')),
+               actionButton("submit_cpg_input", "Plot"),
+               actionButton('reset_cpg_input','Clear')),
       
       #page of region input
       tabPanel('Region Input',
@@ -82,38 +83,41 @@ ui <- fluidPage(
                numericInput('end', 'End', value = NULL),
                
                #action button to submit and reset input
-               actionButton("submit_region_input", "Submit"),
-               actionButton('reset_region_input','Reset'))),
-           
+               actionButton("submit_region_input", "Plot"),
+               actionButton('reset_region_input','Clear'))),
+      hr(),
+      
+      tags$h4(
+        tags$strong('Customize plot output')),
+      checkboxGroupInput('checkbox_tissue',
+                         'Show:',
+                         setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
+                         selected = unique(pDat$Tissue)),
+      
+      sliderInput('range_cpg', 
+                  'Select number of CpGs within gene to plot:',
+                  min = 1, max = 300, value = c(1,50)),
+      actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
       
+      tags$h4(
+        tags$strong('Customize CpG annotation table')),
+      
       checkboxGroupInput('checkbox',
-                         'Columns to show in CpG annotation table',
+                         'Show columns:',
                          names(anno)[-13:-20],
                          inline = FALSE,
                          selected = names(anno)[-13:-20])),
     
     mainPanel(
-      div(dataTableOutput('dt_anno_cpg'), style = "font-size:85%"),
       tabsetPanel(
         type = 'tabs',
       
         # First tab
         tabPanel("Browser",
                  
-                 column(width = 6,
-                        wellPanel(
-                          checkboxGroupInput('checkbox_tissue',
-                                             'Cell types to show',
-                                             unique(pDat$Tissue),
-                                             selected = unique(pDat$Tissue)))),
-                         
-                 column(width = 6,
-                        wellPanel(
-                          sliderInput('range_cpg', 'Set of CpG to plot', min = 1, max = 300, value = c(1,50)),
-                          actionButton('submit_cpg_set','Submit'))),
-                 hr(),
+                 br(),
                  textOutput('text'),
                  plotOutput('annoplot', height = 900)),
         
@@ -134,16 +138,28 @@ ui <- fluidPage(
                          
                          )))),
   
+  tags$h3('Annotation Table'),
+  fluidRow(
+    
+    
+    
+    div(
+      dataTableOutput('dt_anno_cpg', width = "98%"), 
+      style = "font-size:85%",
+      align = 'center')),
+  
   #footer
   hr(),
-  tags$h6(paste("[1] Only associated CpGs will be displayed when selecting a gene.",
-                "This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.", 
-                id = "#footer_1")),
-  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
-  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
-  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
-  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.")),
-  tags$h6(paste("[5] PMD regions coordinates are taken from D. I. Schroeder et al. 2013."))
+
+  HTML(paste("[1] Only associated CpGs will be displayed when selecting a gene.This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.",
+             "[2] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions", 
+             "[3] All DNA methylation data here is 850k array data. See primary publication for details on processing.",
+             "[4] Annotations are in hg19 coordinates.",
+             "[5] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.",
+             "[6] PMD regions coordinates are taken from D. I. Schroeder et al. 2013.",
+             
+             
+             sep = " <br> "))
 )
 ```
 
