@@ -106,9 +106,10 @@ ui <- fluidPage(
       
       checkboxGroupInput('checkbox',
                          'Show columns:',
-                         names(anno)[-13:-20],
+                         
+                         choices = names(rename_columns(anno))[-13:-20],
                          inline = FALSE,
-                         selected = names(anno)[-13:-20])),
+                         selected = names(rename_columns(anno))[-13:-20])),
     
     mainPanel(
       tabsetPanel(
@@ -227,10 +228,12 @@ server <- function(input, output, session) {
     observeEvent(input$submit_region_input, {input_value$input_value <- input$submit_region_input})
     observeEvent(input$submit_region_input, {reset('cpg_number_input_region') & reset('cpg')})
     
+    
     ############  datatable output ############
     #make an empty datatable as default
     empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
     #datatable to show cpg annotation information 
+    
     output$dt_anno_cpg <- DT::renderDataTable({
       #output an empty datatable when no inputs
       if (input_value$input_value == FALSE)
@@ -238,29 +241,39 @@ server <- function(input, output, session) {
                               options = list(paging = FALSE, 
                                              searching = FALSE)))
       #output a datatable when input a gene name
-      isolate(if(input$tabs == 'Gene Input')
-      {DT::datatable(make_datatable(gene_name = input$gene_name, cpg_name = NULL,Chr = NULL, Start = NULL, End = NULL)[,input$checkbox, 
-                                                                drop = FALSE], 
-                    options = list(pageLength = 5),
-                    selection = 'single',
-                    rownames = FALSE) %>% 
-        formatStyle(1, cursor = 'pointer', color = 'blue')}
-      #output a datatable when input cpgs
-      else if(input$tabs == 'CpG Input')
-        {DT::datatable(make_datatable(gene_name = NULL, cpg_name = input$cpg_name, Chr = NULL, Start = NULL, End = NULL)[,input$checkbox, 
-                                                                drop = FALSE], 
-                    options = list(pageLength = 5),
-                    selection = 'single',
-                    rownames = FALSE) %>% 
-        formatStyle(1, cursor = 'pointer', color = 'blue')}
-      #output a datatable when input a region
-      else if(input$tabs == 'Region Input')
-        {DT::datatable(make_datatable(gene_name = NULL, cpg_name = NULL, Chr = input$chr, Start = input$start, End = input$end)[,input$checkbox, 
-                                                                drop = FALSE], 
-                    options = list(pageLength = 5),
-                    selection = 'single',
-                    rownames = FALSE) %>% 
-        formatStyle(1, cursor = 'pointer', color = 'blue')
+      isolate(if(input$tabs == 'Gene Input') {
+        
+        DT::datatable(
+          make_datatable(gene_name = input$gene_name, 
+                         cpg_name = NULL,
+                         Chr = NULL, Start = NULL, End = NULL)[,input$checkbox,drop = FALSE],
+          options = list(pageLength = 5),
+          selection = 'single',
+          rownames = FALSE) %>%
+          formatStyle(1, cursor = 'pointer', color = 'blue')}
+        
+        #output a datatable when input cpgs
+        else if(input$tabs == 'CpG Input') {
+          
+          DT::datatable(
+            make_datatable(gene_name = NULL, cpg_name = input$cpg_name, 
+                           Chr = NULL, Start = NULL, End = NULL)[,input$checkbox, drop = FALSE], 
+            options = list(pageLength = 5),
+            selection = 'single',
+            rownames = FALSE) %>%
+            formatStyle(1, cursor = 'pointer', color = 'blue')
+          } else if(input$tabs == 'Region Input') {#output a datatable when input a region
+        
+            DT::datatable(
+              make_datatable(
+                gene_name = NULL, cpg_name = NULL,
+                Chr = input$chr, Start = input$start, End = input$end
+                )[,input$checkbox, drop = FALSE],
+              options = list(pageLength = 5),
+              selection = 'single',
+              rownames = FALSE
+              ) %>%
+              formatStyle(1, cursor = 'pointer', color = 'blue')
         
         })
       }
