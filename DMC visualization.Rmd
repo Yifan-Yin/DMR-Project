@@ -390,9 +390,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     # First we need to process the annotation data
     mutate(# absent/presence for different genomic elements
            enhancer = !is.na(enhancers_id),
-           pmd = !is.na(pmd_id),
-           imprinted_dmr_general = !is.na(imprinted_dmr_general),
-           imprinted_dmr_placenta = !is.na(imprinted_dmr_placenta)) %>%
+           pmd = !is.na(pmd_id)) %>%
     mutate_if(is.logical, as.character) %>%
     select(cpg, enhancer, pmd, 
            imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, start) %>%

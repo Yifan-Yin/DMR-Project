@@ -15,7 +15,7 @@ summarized / compressed forms. This script is to document these types of changes
 
 ## Base
 
-The annotation that we base our app on is a custom one that I (Victor) created using a couple different databases on packages. In brief, I used the Illumina-provided EPIC annotation for positional information on the hg19 genome build. Then, using the R package annotatr, I added information on cpg islands (UCSC), genes, transcripts (UCSC), and fantom5 enhancers. I used Giulia DG's compiled imprinting DMR list which is based on Courtney Hanna's and Court et al.'s papers. For PMDs, I used DI Schroeder et al. 2013 paper.
+The annotation that we base our app on is a custom one that I (Victor) created using a couple different databases on packages. In brief, I used the Illumina-provided EPIC annotation for positional information on the hg19 genome build. Then, using the R package annotatr, I added information on cpg islands (UCSC), genes, transcripts (UCSC), and fantom5 enhancers. I 4 different imprinting studies to determine imprinted regions, which I describe in my cells publication. For PMDs, I used DI Schroeder et al. 2013 paper.
 
 ```{r}
 library(tidyverse)
@@ -27,14 +27,15 @@ anno <- readRDS(file.path('Z:', 'Victor', 'Repositories', 'EPIC_annotation',
 
 # remove unnecessary columns
 anno <- anno %>%
-  select(-contains('width'), -contains('imprinted_gene'), -group, -genes_gene_id) %>%
+  select(-contains('width'), -contains('repeat'), -group, -genes_gene_id, -imprint_sources, 
+         -imprint_methylated_allele, -imprint_region) %>%
   select(cpg:enhancers_id, genes_symbol, genes_tx_id, genes_id, everything()) # rearrange
 
 ```
 
 ## DMCS
 
-Here, dmcs are saved as an excel file. I remove unnecessary columns.
+Here, I process the differential methylation results, and remove unnecessary columns.
 
 these are all DMCs that are significant at bonf < 0.01, and absolute difference beta value > 0.1. 
 
@@ -66,6 +67,17 @@ dmcs <- dmcs %>%
 anno <- anno %>% 
   left_join(dmcs, by = 'cpg') %>% 
   mutate_if(is.logical, function(x)if_else(is.na(x), FALSE, x)) 
+
+# separate out placenta and other imprints
+anno <- anno %>%
+  mutate(imprinted_dmr_placenta = imprint_tissue_specificity == 'placental-specific',
+         imprinted_dmr_general = imprint_tissue_specificity == 'other') %>%
+  select(-imprint_tissue_specificity) %>% 
+  mutate_if(is.logical, function(x)if_else(is.na(x), FALSE, x)) 
+
+#reorder
+anno <- anno %>%
+  select(cpg:genes_id, imprinted_dmr_general, imprinted_dmr_placenta, pmd_id, everything())
 ```
 
 # Save data
