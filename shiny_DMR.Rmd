@@ -88,14 +88,20 @@ ui <- fluidPage(
       hr(),
       
       tags$h4(
-        tags$strong('Customize plot output')),
+        tags$strong('Customize plot')),
       checkboxGroupInput('checkbox_tissue',
-                         'Show:',
+                         'Show methylation for:',
                          setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
                          selected = unique(pDat$Tissue)),
       
+      
+      checkboxGroupInput('checkbox_sex',
+                         'Include:',
+                         setNames(c('F', 'M'), c('Female', 'Male')),
+                         selected = unique(pDat$Sex)),
+      
       sliderInput('range_cpg', 
-                  'Select number of CpGs within gene to plot:',
+                  'Select number of CpGs within gene to plot (useful if there are too many CpGs):',
                   min = 1, max = 300, value = c(1,50)),
       actionButton('submit_cpg_set','Submit'),
       br(),
@@ -158,6 +164,7 @@ ui <- fluidPage(
              "[4] Annotations are in hg19 coordinates.",
              "[5] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.",
              "[6] PMD regions coordinates are taken from D. I. Schroeder et al. 2013.",
+             "[7] Differential methylation by cell type was conducted separated in first and third trimester samples for autosomal CpGs. Differentially methylated cytosines (DMCs) are defined as a bonferroni adjusted p-value < 0.01 and a mean difference in methylation > 10%. Differential methylation was conducted with a one-versus-all design.",
              
              
              sep = " <br> "))
@@ -287,17 +294,25 @@ server <- function(input, output, session) {
       #output a plot when input a gene
       else if(input$tabs == 'Gene Input')
         {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
         {
-        annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
         {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = input$start, End = input$end, Chr = input$chr, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                             Start = input$start, End = input$end, Chr = input$chr, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         }
       
           
@@ -321,18 +336,30 @@ server <- function(input, output, session) {
       if (input_value$input_value  == FALSE) return()
       else if(input$tabs == 'Gene Input')
         {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), Chr = NULL, Start = NULL, End = NULL, cpg_number = cpg_number$cpg_number, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             cpg_number = cpg_number$cpg_number, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
         {
-        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
         {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr(), Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                             Start = get_region_start(), 
+                             End = get_region_end(), 
+                             Chr = get_region_chr(), 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         }
       )
     })
@@ -348,18 +375,30 @@ server <- function(input, output, session) {
       if (input_value$input_value  == FALSE) return()
       else if(input$tabs == 'Gene Input')
         {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(),
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
         {
-        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
         {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr(), cpg_number = cpg_number_region$cpg_number, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                             Start = get_region_start(), 
+                             End = get_region_end(), 
+                             Chr = get_region_chr(), 
+                             cpg_number = cpg_number_region$cpg_number, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         }
       )
     })
@@ -379,18 +418,32 @@ server <- function(input, output, session) {
       if (input_value$input_value  == FALSE) return()
       else if(input$tabs == 'Gene Input')
         {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), Chr = NULL, Start = NULL, End = NULL, first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
         {
-        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
         {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, Start = get_region_start(), End = get_region_end(), Chr = get_region_chr(), first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, Tissue_type = input$checkbox_tissue)
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                             Start = get_region_start(), 
+                             End = get_region_end(), 
+                             Chr = get_region_chr(), 
+                             first_cpg = cpg_start$cpg_start, 
+                             end_cpg = cpg_end$cpg_end, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
         }
       )
     })
@@ -408,11 +461,11 @@ server <- function(input, output, session) {
       {
         if (!is.null(c_info$value))
         {
-          boxplot_selected(c_info$value)
+          boxplot_selected(c_info$value, sex_type = input$checkbox_sex)
         }
         else if(!is.null(get_cpg_from_dt()))
         {
-          boxplot_selected(get_cpg_from_dt())
+          boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
         }
       }
     )
@@ -420,7 +473,7 @@ server <- function(input, output, session) {
     #produce a boxplot based on the selected cpg using search box
     observeEvent(input$submit_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
       {
-        boxplot_selected(get_cpg_from_dt())
+        boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
       }
     )})
     

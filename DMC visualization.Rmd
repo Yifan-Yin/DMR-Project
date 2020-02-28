@@ -133,7 +133,13 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
 
 This is the middle plot with all the annotation tracks.
 ```{r}
-annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, Start = NULL, End = NULL, cpg_number = 50, first_cpg = NULL, end_cpg = NULL, Tissue_type = unique(pDat$Tissue)){
+annoPlot_with_tracks <- function(cpg_name = NULL, 
+                                 gene_name = NULL, 
+                                 Chr = NULL, Start = NULL, 
+                                 End = NULL, cpg_number = 50, 
+                                 first_cpg = NULL, end_cpg = NULL, 
+                                 Tissue_type = unique(pDat$Tissue),
+                                 Sex_type = c('F', 'M')){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -234,32 +240,35 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
   #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
-    betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
-    mutate(Sample_Name = colnames(betas)) %>%
+    betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
+      as_tibble %>% 
+      mutate(Sample_Name = colnames(betas)) %>%
     
-    # reshape into longer format
-    pivot_longer(cols = -Sample_Name,
-                 names_to = 'cpg', 
-                 values_to = 'beta')  %>%
-    
-    # add tissue and trimester info
-    left_join(pDat %>% select(Sample_Name, Trimester, Tissue), by = 'Sample_Name') %>%
-    
-    # calculate mean and sd for each cpg for each group
-    group_by(Tissue, Trimester, cpg) %>%
-    summarize(mean = mean(beta),
-              sd = sd(beta)) %>%
-    mutate(lower = mean-sd, upper = mean+sd) %>%
-    
-    # add cpg info
-    left_join(anno_gene, by = 'cpg') %>%
-    
-    # order on cpg position
-    ungroup() %>%
-    arrange(desc(start)) %>%
-    mutate(cpg = factor(cpg, levels = unique(cpg)),
-           Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
-    filter(Tissue %in% Tissue_type)
+      # reshape into longer format
+      pivot_longer(cols = -Sample_Name,
+                   names_to = 'cpg', 
+                   values_to = 'beta')  %>%
+      
+      # add tissue and trimester info
+      left_join(pDat %>% select(Sample_Name, Trimester, Tissue, Sex), by = 'Sample_Name') %>%
+      
+      filter(Sex %in% Sex_type) %>%
+      
+      # calculate mean and sd for each cpg for each group
+      group_by(Tissue, Trimester, cpg) %>%
+      summarize(mean = mean(beta),
+                sd = sd(beta)) %>%
+      mutate(lower = mean-sd, upper = mean+sd) %>%
+      
+      # add cpg info
+      left_join(anno_gene, by = 'cpg') %>%
+      
+      # order on cpg position
+      ungroup() %>%
+      arrange(desc(start)) %>%
+      mutate(cpg = factor(cpg, levels = unique(cpg)),
+             Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
+      filter(Tissue %in% Tissue_type)
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
   font_size <- 12
@@ -325,7 +334,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL, gene_name = NULL, Chr = NULL, 
     pivot_longer(cols = -cpg,
                  names_to = 'Group',
                  values_to = 'Significant') %>%
-    mutate(facet_title = 'Differential methylation') %>%
+    mutate(facet_title = 'Differential methylation by cell type') %>%
     separate(Group, c('Trimester', 'Tissue'), '_') %>%
     
      # convert axes to numeric for geom_path to work
@@ -616,10 +625,11 @@ sample_info_cpg <- function(cpg_name){
 
 ```{r}
 #boxplots which show beta values based on cell types
-boxplot_selected<- function(cpg_name){
+boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
   
     #given cpg, get sample betas, cell type  and trimester
-    cpg <- sample_info_cpg(cpg_name)
+    cpg <- sample_info_cpg(cpg_name) %>%
+      filter(Sex %in% sex_type)
     
     ggplot(cpg, aes(x=Trimester, y = betas, color = Tissue)) +
       geom_boxplot(outlier.shape = NA)+
