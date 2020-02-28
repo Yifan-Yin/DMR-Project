@@ -23,11 +23,11 @@ library(here)
 
 ```{r}
 # sample data
-pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
+pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
-betas <- readRDS(here::here('data', '3_1_betas_filt.rds'))
+betas <- readRDS(here('data', 'betas.rds'))
 # annotation
-anno <- readRDS(here::here('data', 'annotation.rds'))
+anno <- readRDS(here('data', 'annotation.rds'))
 #color code
 color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
@@ -242,15 +242,15 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
     betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
       as_tibble %>% 
-      mutate(Sample_Name = colnames(betas)) %>%
+      mutate(deidentified_id = colnames(betas)) %>%
     
       # reshape into longer format
-      pivot_longer(cols = -Sample_Name,
+      pivot_longer(cols = -deidentified_id,
                    names_to = 'cpg', 
                    values_to = 'beta')  %>%
       
       # add tissue and trimester info
-      left_join(pDat %>% select(Sample_Name, Trimester, Tissue, Sex), by = 'Sample_Name') %>%
+      left_join(pDat %>% select(deidentified_id, Trimester, Tissue, Sex), by = 'deidentified_id') %>%
       
       filter(Sex %in% Sex_type) %>%
       
@@ -600,7 +600,7 @@ sample_info_cpg <- function(cpg_name){
     #when have only one cpg input
     if (length(cpg_name) ==1){
     cpg <- as.data.frame(cpg) %>% t()
-    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
+    cpg <- cpg[,colnames(cpg) %in% pDat$deidentified_id]
     cpg <- as.data.frame(cpg)
     colnames(cpg) <- cpg_name
     cpg <- cpg %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
@@ -608,7 +608,7 @@ sample_info_cpg <- function(cpg_name){
     
     #when have more than one cpg inputs
     else{
-    cpg <- cpg[,colnames(cpg) %in% pDat$Sample_Name]
+    cpg <- cpg[,colnames(cpg) %in% pDat$deidentified_id]
     cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
     }
     cpg <- cpg %>% 

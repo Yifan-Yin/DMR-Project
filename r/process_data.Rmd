@@ -80,8 +80,28 @@ anno <- anno %>%
   select(cpg:genes_id, imprinted_dmr_general, imprinted_dmr_placenta, pmd_id, everything())
 ```
 
+# pData and betas
+
+```{r}
+# sample data
+pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
+# methylation data
+betas <- readRDS(here::here('data', '3_1_betas_filt.rds'))
+
+# make sure all in same order
+all(pDat$Sample_Name == colnames(betas))
+
+set.seed(0)
+pDat <- pDat %>% 
+  mutate(deidentified_id = paste0('rob', sample(1:n(),n()))) %>%
+  select(deidentified_id, Sex, Trimester, Tissue)
+
+colnames(betas) <- pDat$deidentified_id
+```
 # Save data
 
 ```{r eval = FALSE}
 saveRDS(anno, here('data', 'annotation.rds'))
+saveRDS(pDat, here('data', 'pDat.rds'))
+saveRDS(betas, here('data', 'betas.rds'))
 ```
