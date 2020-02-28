@@ -1,31 +1,27 @@
+## ----setup, include=FALSE--------------------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
 
 
-#install.packages('ggforce')
+## --------------------------------------------------------------------------------------
 library(tidyverse)
 library(egg)
 library(here)
 
 
-# Setup
-
-## Load data
-
+## --------------------------------------------------------------------------------------
 # sample data
 pDat <- readRDS(here::here('data', '3_1_pDat_filt.rds'))
-
 # methylation data
 betas <- readRDS(here::here('data', '3_1_betas_filt.rds'))
-
 # annotation
 anno <- readRDS(here::here('data', 'annotation.rds'))
-
 #color code
 color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 
-## Rename column names
 
+## --------------------------------------------------------------------------------------
 # rename column names
 rename_columns <- function(x) {
   dplyr::rename(
@@ -48,8 +44,7 @@ rename_columns <- function(x) {
 }
 
 
-## Column names
-
+## --------------------------------------------------------------------------------------
 #column names 
 column_names <- anno %>% 
   select(cpg, chr, start, end, 
@@ -59,9 +54,7 @@ column_names <- anno %>%
   names()
 
 
-## Generate gene/cpg search list
-
-
+## --------------------------------------------------------------------------------------
 #list of genes for search list
 gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
@@ -74,52 +67,80 @@ cpg <- unique(anno$cpg)
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
 
-# 1. datatable which shows cpg annotation
-
-## Main function
-
-#datatable which shows cpg annotation (when inputs have both cpgs and genes)
-cpg_info_total <- function(cpg_name = NULL, gene_name = NULL){
-  
-  
-  if (is.null(cpg_name)){
+## --------------------------------------------------------------------------------------
+#produce a datatable which shows cpg annotation
+make_datatable <- function(cpg_name = NULL, gene_name = NULL, 
+                           Chr = NULL, Start = NULL, End = NULL){
+  if (!is.null(cpg_name)) { #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
+  }
+  else if (!is.null(gene_name)) {
+    #get cpg sites related to input genes
+    cpg_name <- find_cpg_ids(gene_name)
     
-    # when input is gene symbol
-    cpgs <- fn_cpg(gene_name)
-    info <- filter(anno, cpg %in% cpgs)%>% arrange(desc(start))
-  }
-  else if (gene_name == ''){
-    
-    # when input are cpg ids
-    info <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
-  }
-  else {
-    stop('please enter either cpgs or a gene')
+    #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
   }
   
-  info %>%
+  else if (!is.null(Chr) & !is.null(Start) & !is.null(End))
+  {
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    
+    #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) 
+  }
+  
+  anno_cpg <- anno_cpg %>% 
+    select(cpg, chr, start, end, 
+           cpg_id, enhancers_id, 
+           genes_symbol, genes_tx_id, genes_id, 
+           pmd_id,
+           imprinted_dmr_general, imprinted_dmr_placenta) %>%
     rename_columns()
 }
 
-# 2. Main gene/cpg plot with tracks
 
-stat_plot <- function(cpg_name = NULL, gene_name = NULL){
+
+## --------------------------------------------------------------------------------------
+annoPlot_with_tracks <- function(cpg_name = NULL, 
+                                 gene_name = NULL, 
+                                 Chr = NULL, Start = NULL, 
+                                 End = NULL, cpg_number = 50, 
+                                 first_cpg = NULL, end_cpg = NULL, 
+                                 Tissue_type = unique(pDat$Tissue),
+                                 Sex_type = c('F', 'M')){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
-  if (is.null(cpg_name)){
+  if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
     
     # If a gene symbol is supplied,
     # filter to gene in annotation
     anno_gene <- anno %>%
       filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
              cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
+      arrange(desc(start)) %>% slice(1:cpg_number)
     
     # stop if gene symbol is invalid
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  } else if (gene_name == ''){
+  }
+  else if (!is.null(gene_name) & !is.null(first_cpg) & !is.null(end_cpg)){
+    
+    # If a gene symbol is supplied,
+    # filter to gene in annotation
+    anno_gene <- anno %>%
+      filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
+             cpg %in% rownames(betas)) %>%
+      arrange(desc(start)) %>% slice(first_cpg: end_cpg)
+    
+    # stop if gene symbol is invalid
+    if (nrow(anno_gene) == 0) {
+      stop('No cpgs found, maybe they were filtered out.')
+    }
+  }
+  else if (!is.null(cpg_name)){
     
     # If a cpg is provided,
     # filter annotation to cpgs
@@ -138,15 +159,59 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                    setdiff(cpg_name, rownames(betas))))
     }
     
-  } else {
+  }   
+  else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & is.null(first_cpg) & is.null(end_cpg)){
+    
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    # filter annotation to cpgs
+    anno_gene <- anno %>%
+      filter(cpg %in% cpg_name,
+             cpg %in% rownames(betas)) %>% 
+      arrange(chr, desc(start)) %>% slice(1:cpg_number)
+    # stop if no cpgs were found
+    if (nrow(anno_gene) == 0) {
+      stop('No cpgs found in the selected region')
+    }
+  }
+  else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
+    
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    # filter annotation to cpgs
+    anno_gene <- anno %>%
+      filter(cpg %in% cpg_name,
+             cpg %in% rownames(betas)) %>% 
+      arrange(chr, desc(start)) %>% slice(first_cpg : end_cpg)
+    # stop if no cpgs were found
+    if (nrow(anno_gene) == 0) {
+      stop('No cpgs found in the selected region')
+    }
+  }
+  else {
     stop('Enter valid cpg(s) OR one specific gene.')
   }
   
   ######## SETUP INPUT TO PLOTS ###############
   #
+  # Title
+  #
+  title <- paste0(
+    unique(anno_gene$chr), ':',
+    min(anno_gene$start), '-',
+    max(anno_gene$start)
+  )
+  
+  if (is.null(cpg_name)){
+    title <- paste0(gene_name, ', ', title)
+  } 
+  
+  
+  #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
-  betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% as_tibble %>% 
+  betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
+    as_tibble %>% 
     mutate(Sample_Name = colnames(betas)) %>%
     
     # reshape into longer format
@@ -155,7 +220,9 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                  values_to = 'beta')  %>%
     
     # add tissue and trimester info
-    left_join(pDat %>% select(Sample_Name, Trimester, Tissue), by = 'Sample_Name') %>%
+    left_join(pDat %>% select(Sample_Name, Trimester, Tissue, Sex), by = 'Sample_Name') %>%
+    
+    filter(Sex %in% Sex_type) %>%
     
     # calculate mean and sd for each cpg for each group
     group_by(Tissue, Trimester, cpg) %>%
@@ -170,7 +237,8 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     ungroup() %>%
     arrange(desc(start)) %>%
     mutate(cpg = factor(cpg, levels = unique(cpg)),
-           Trimester_Tissue = paste0(Trimester, ' - ', Tissue))
+           Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
+    filter(Tissue %in% Tissue_type)
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
   font_size <- 12
@@ -223,8 +291,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
                        labels = function(x)gsub(' cs', '', x)) +
     labs(y = 'DNA\nmethylation', 
          x = '', 
+         
          color = '', 
-         title = if_else(!is.null(gene_name), gene_name, '')) 
+         title = title)
+  
   
   p_dmc <- betas_gene %>%
     
@@ -234,7 +304,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     pivot_longer(cols = -cpg,
                  names_to = 'Group',
                  values_to = 'Significant') %>%
-    mutate(facet_title = 'Differential methylation') %>%
+    mutate(facet_title = 'Differential methylation by cell type') %>%
     separate(Group, c('Trimester', 'Tissue'), '_') %>%
     
     # convert axes to numeric for geom_path to work
@@ -248,7 +318,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
       ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
         geom_point(data = . %>% 
                      filter(!is.na(Significant_num)), size = point_size) +
-        geom_path(na.rm = TRUE, size = line_size) +
+        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1) +
         facet_grid(rows = vars(Trimester),
                    cols = vars(facet_title),
                    labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
@@ -271,12 +341,12 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
               strip.text.y = element_text(face = 'bold', vjust = 0.5, hjust = 0.5, angle = 180),
               strip.text.x = element_text(face = 'bold', hjust = 0),
               strip.placement = 'outside') +
-        scale_color_manual(values = color_code_tissue[unique(betas_gene$Tissue)],
+        scale_color_manual(values = color_code_tissue[unique(pDat$Tissue)],
                            na.value = '#f7f7f7',
                            guide = 'none') +
         scale_y_continuous(expand = c(0.15,0.15),
                            breaks = c(1, 2, 3, 4, 5), 
-                           labels = betas_gene$Tissue %>% 
+                           labels = pDat$Tissue %>% 
                              as.factor() %>% 
                              levels() %>%
                              gsub(' cs', '', .)) +
@@ -290,9 +360,7 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
     # First we need to process the annotation data
     mutate(# absent/presence for different genomic elements
       enhancer = !is.na(enhancers_id),
-      pmd = !is.na(pmd_id),
-      imprinted_dmr_general = !is.na(imprinted_dmr_general),
-      imprinted_dmr_placenta = !is.na(imprinted_dmr_placenta)) %>%
+      pmd = !is.na(pmd_id)) %>%
     mutate_if(is.logical, as.character) %>%
     select(cpg, enhancer, pmd, 
            imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, start) %>%
@@ -451,12 +519,10 @@ stat_plot <- function(cpg_name = NULL, gene_name = NULL){
   ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
 }
 
-# 3. CpG boxplots
-
-## Data wrangling functions
 
 
-fn_cpg <- function(gene_name){
+## --------------------------------------------------------------------------------------
+find_cpg_ids <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
            grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE)) %>%
@@ -467,6 +533,22 @@ fn_cpg <- function(gene_name){
 }
 
 
+## --------------------------------------------------------------------------------------
+find_cpg_from_region <- function(Chr, Start, End){
+  
+  cpg_name <- anno %>% 
+    filter(chr == Chr, start > Start, end < End) %>%
+    pull(cpg) %>%
+    unique()
+  
+  cpg_name <- cpg_name[cpg_name %in% rownames(betas)]
+  
+  cpg_name
+}
+
+
+
+## --------------------------------------------------------------------------------------
 sample_info_cpg <- function(cpg_name){
   
   cpg <- betas[cpg_name,]
@@ -493,20 +575,13 @@ sample_info_cpg <- function(cpg_name){
 }
 
 
-
-
-sample_info_gene <- function(gene_name){
-  #get related cpg sites
-  cpg_name <- fn_cpg(gene_name)
-  #get sample cell types and tri
-  cpg_info <- sample_info_cpg(cpg_name) 
-  cpg_info
-}
-
-boxplot_individual<- function(cpg_name){
+## --------------------------------------------------------------------------------------
+#boxplots which show beta values based on cell types
+boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
   
   #given cpg, get sample betas, cell type  and trimester
-  cpg <- sample_info_cpg(cpg_name)
+  cpg <- sample_info_cpg(cpg_name) %>%
+    filter(Sex %in% sex_type)
   
   ggplot(cpg, aes(x=Trimester, y = betas, color = Tissue)) +
     geom_boxplot(outlier.shape = NA)+
@@ -522,20 +597,25 @@ boxplot_individual<- function(cpg_name){
     scale_color_manual(values = colors) 
 }
 
-####################################### BEGIN SERVER AND UI FUNCTIONS #############################
-
-
+## --------------------------------------------------------------------------------------
+#install.packages('rsconnect')
+#install.packages('shinyjs')
 library(rsconnect)
 library(shiny)
 rsconnect::setAccountInfo(name='yifan7', token='52E1037550A7AA68252579A98EE8AA38', secret='+NlrJysSVZHa5LQQb9slmYRDXExPfjF0QbxMjUH1')
 library(DT)
 library(shinyjs)
+library(shinythemes)
 
+
+## --------------------------------------------------------------------------------------
 ui <- fluidPage(
+  theme = shinythemes::shinytheme("lumen"),
+  
   useShinyjs(),
   #main title
-  titlePanel("Placental Cell Methylome Browser"),
-  hr(), #create a line
+  titlePanel("Welcome to the Placental Cell Methylome Browser!"),
+  p('Scroll down to see detailed instructions.'),
   
   #UI layout
   sidebarLayout(
@@ -544,331 +624,481 @@ ui <- fluidPage(
       # relative width out of 12 units
       width = 3,
       
-      #app description
-      p('Welcome to the Placental Cell Methylome Browser!'),
-      p('This app allows visualization of DNA methylation across various placental tissues and cell types.'),
-      p('To start, select CpGs or a gene.'),
+      tags$h4(
+        tags$strong('Plot input:')),
+      
+      p('Select a gene, specific CpGs, or a genomic region:', 
+        span(tags$a(href = '#footer_1', tags$sup(1), style = 'color:blue'))),
+      
+      tabsetPanel(type = 'tabs', id = 'tabs',
+                  
+                  #page of gene input 
+                  tabPanel('Gene Input',
+                           
+                           #gene search list
+                           selectizeInput(
+                             'gene_name', '',
+                             choices = NULL,
+                             multiple = FALSE,
+                             options = list(placeholder='Enter a gene name',
+                                            onInitialize = I('function() { this.setValue(""); }'))),
+                           #action button to submit and reset input
+                           actionButton("submit_gene_input", "Plot"),
+                           actionButton('reset_gene_input','Clear')),
+                  
+                  #page of cpgs input
+                  tabPanel('CpG Input',
+                           
+                           #cpg search list
+                           selectizeInput('cpg_name', '',
+                                          choices = NULL,
+                                          multiple = TRUE,
+                                          options = list(placeholder='Enter CpG site names' )),
+                           
+                           #action button to submit and reset input
+                           actionButton("submit_cpg_input", "Plot"),
+                           actionButton('reset_cpg_input','Clear')),
+                  
+                  #page of region input
+                  tabPanel('Region Input',
+                           
+                           #chromosome 
+                           selectizeInput('chr','Chromosome',
+                                          choices = NULL,
+                                          multiple = FALSE,
+                                          options = list(placeholder = 'Enter a chromosome')),
+                           
+                           #start point
+                           numericInput('start', 'Start', value = NULL),
+                           #end point
+                           numericInput('end', 'End', value = NULL),
+                           
+                           #action button to submit and reset input
+                           actionButton("submit_region_input", "Plot"),
+                           actionButton('reset_region_input','Clear'))),
       hr(),
       
-      #cpg name input
-      selectizeInput('name', 'CpG Sites', 
-                     choices = NULL,
-                     multiple = TRUE,
-                     options = list(placeholder='Enter CpG site names' )),
-      #gene input  
-      selectizeInput('gene', 'Gene', 
-                     choices = NULL, 
-                     multiple = FALSE,
-                     options = list(placeholder='Enter a gene name',
-                                    onInitialize = I('function() { this.setValue(""); }'))),
+      tags$h4(
+        tags$strong('Customize plot')),
+      checkboxGroupInput('checkbox_tissue',
+                         'Show methylation for:',
+                         setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
+                         selected = unique(pDat$Tissue)),
       
-      actionButton("submit", "Submit"),
-      actionButton('reset','Reset'),
-      br(), # add a space line
-      hr(), # create a horizontal line
       
-      p('If a specific gene is selected, then you can also display specific associated-CpGs'),
+      checkboxGroupInput('checkbox_sex',
+                         'Include:',
+                         setNames(c('F', 'M'), c('Female', 'Male')),
+                         selected = unique(pDat$Sex)),
       
-      #cpgs related to selected gene
-      selectizeInput('cpg', 'CpGs related to the selected gene', 
-                     choices = NULL,
-                     multiple = TRUE),
-      actionButton('submit2', 'Submit'),
-      actionButton('reset2','Reset'),
-      
+      sliderInput('range_cpg', 
+                  'Select number of CpGs within gene to plot (useful if there are too many CpGs):',
+                  min = 1, max = 300, value = c(1,50)),
+      actionButton('submit_cpg_set','Submit'),
       br(),
-      hr(),#create a horizontal line
-      checkboxGroupInput('checkbox', 
-                         'Columns to show in CpG annotation table', 
-                         choices = column_names, 
-                         selected = column_names[-10:-12])
-    ), 
+      hr(),
+      
+      tags$h4(
+        tags$strong('Customize CpG annotation table')),
+      
+      checkboxGroupInput('checkbox',
+                         'Show columns:',
+                         
+                         choices = names(rename_columns(anno))[-13:-20],
+                         inline = FALSE,
+                         selected = names(rename_columns(anno))[-13:-20])),
     
     mainPanel(
-      hr(),
-      
-      #create a data table to show cpg site information 
-      div(dataTableOutput('info'), style = "font-size:85%"),
-      
-      hr(),
-      
-      # GENE PLOT
-      plotOutput('plot_cpg', height = 'auto'),
-      
-      hr(),
-      
-      # INDIVIDUAL CPG PLOT
-      plotOutput('boxplot_individual')
-      
-      #boxplot that shows tissue and trimester
-      #selectInput('num','Number of CpGs to plot', choices = c(25, 50, 75,100)),
-      #plotOutput('boxplot_total',  height = '650px'),
-    )
-  ),
+      tabsetPanel(
+        type = 'tabs',
+        
+        # First tab
+        tabPanel("Browser",
+                 
+                 br(),
+                 textOutput('text'),
+                 plotOutput('annoplot', height = 900)),
+        
+        # Second tab
+        tabPanel("CpG Boxplots",
+                 p('Show boxplots for specific CpGs:'),
+                 
+                 #cpgs search list related to the input
+                 selectizeInput('cpg', 'CpGs related to the input',
+                                choices = NULL,
+                                multiple = TRUE),
+                 
+                 #action button to submit and reset input
+                 actionButton('submit_cpg_gene_input', 'Submit'),
+                 actionButton('reset_cpg_gene_input','Reset'),
+                 
+                 plotOutput('boxplot_selected_cpg')
+                 
+        )))),
+  
+  tags$h3('Annotation Table'),
+  fluidRow(
+    
+    
+    
+    div(
+      dataTableOutput('dt_anno_cpg', width = "98%"), 
+      style = "font-size:85%",
+      align = 'center')),
   
   #footer
   hr(),
-  tags$h6(paste("[1] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions")),
-  tags$h6(paste("[2] All DNA methylation data here is 850k array data. See primary publication for details on processing.")),
-  tags$h6(paste("[3] Annotations are in hg19 coordinates.")),
   
-  tags$h6(paste("[4] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%."))
+  HTML(paste("[1] Only associated CpGs will be displayed when selecting a gene.This CpG-gene mapping is based on the Illumina-provided EPIC array annotation.",
+             "[2] When selecting a gene, all CpGs that are mapped to any component of an associated transcript will be shown. Transcript components include 1-5Kb upstream of the TSS, the promoter (< 1Kb upstream of the TSS), 5’UTR, exons, introns, and 3’UTRs. Everything else are intergenic regions", 
+             "[3] All DNA methylation data here is 850k array data. See primary publication for details on processing.",
+             "[4] Annotations are in hg19 coordinates.",
+             "[5] Differential methylation is defined as a bonferroni-adjusted p-value < 0.01, and an absolute difference in mean DNAm > 25%.",
+             "[6] PMD regions coordinates are taken from D. I. Schroeder et al. 2013.",
+             "[7] Differential methylation by cell type was conducted separated in first and third trimester samples for autosomal CpGs. Differentially methylated cytosines (DMCs) are defined as a bonferroni adjusted p-value < 0.01 and a mean difference in methylation > 10%. Differential methylation was conducted with a one-versus-all design.",
+             
+             
+             sep = " <br> "))
 )
 
+
+## --------------------------------------------------------------------------------------
 server <- function(input, output, session) {
-  #searching list
-  updateSelectizeInput(session = session, inputId = 'name', 
+  ############  searching lists ############
+  #searching list of cpgs
+  updateSelectizeInput(session = session, inputId = 'cpg_name', 
                        choices = cpg$value, server = TRUE)
-  
-  updateSelectizeInput(session = session, inputId = 'gene', 
+  #searching list of genes
+  updateSelectizeInput(session = session, inputId = 'gene_name', 
                        choices = gene$gene, selected = '',server = TRUE)
+  #searching list of chromosomes
+  chr <- unique(anno$chr) %>% str_sort(numeric = TRUE) %>% as.tibble()
+  updateSelectizeInput(session = session, inputId = 'chr',
+                       choices = chr$value, selected = '', server = TRUE)
   
-  #produce output when click submit button
-  event_submit <- eventReactive(input$submit, {input$name})
-  event_submit2 <- eventReactive(input$submit, {input$gene})
-  empty_df <- anno[0,]
-  
-  #cpg site information datatable
-  output$info <- DT::renderDataTable({ 
-    if (input$submit == FALSE)
-      return(DT:: datatable(empty_df, 
-                            options = list(paging = FALSE, 
-                                           searching = FALSE)))
-    DT::datatable(cpg_info_total(cpg_name = event_submit(), 
-                                 gene_name = event_submit2())[,input$checkbox, 
-                                                              drop = FALSE], 
-                  options = list(pageLength = 5),
-                  selection = 'single',
-                  rownames = FALSE) %>% 
-      formatStyle(1, cursor = 'pointer', color = 'blue')
-  }
-  )
-  
-  # find the number of transcripts for selected gene
-  n_trans <- function(gene_name = NULL){
-    anno_gene <- anno %>%
-      filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
-             cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
-    n_trans <- anno_gene$genes_tx_id %>% 
-      str_split(', ') %>% 
-      unlist() %>% 
-      unique %>% 
-      length()
-    n_trans
-  }
-  #plot height changes depends on the number of transcripts
-  plotHeight <- reactive({
-    if (n_trans(event_submit2()) > 20)
-    {
-      return(1000)
-    }
-    else
-    {
-      return(900)
-    }
-  })
-  #gene cpg plots
-  output$plot_cpg <- renderPlot(
-    {
-      stat_plot(cpg_name = event_submit(), gene_name = event_submit2()) 
-      
-    },
-    #set plot height depends on the number of transcipts
-    height = plotHeight
-    
-  )
-  
-  #boxplot
-  output$boxplot_total <- renderPlot(
-    { 
-      boxplot_total(cpg_name = event_submit(), 
-                    gene_name = event_submit2(), 
-                    nrow = (as.numeric(input$num) %/% 7))
-    }
-  )
-  
-  #related cpg site
-  b <- reactive(fn_cpg(event_submit2()))
+  #get cpg sites related to the selected gene
+  cpg_related_to_gene <- reactive(find_cpg_ids(get_gene_input()))
+  cpg_related_to_region <- reactive(find_cpg_from_region(Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()))
   #searching list (cpg sites related to selected gene)
   observe(
-    {
-      updateSelectizeInput(session = session, 
-                           inputId = 'cpg', 
-                           choices = b(), 
-                           server = TRUE, 
-                           selected = '')
+    { if(input$tabs == 'Gene Input')
+    {updateSelectizeInput(session = session, 
+                          inputId = 'cpg', 
+                          choices = cpg_related_to_gene(), 
+                          server = TRUE, 
+                          selected = '')}
+      else if(input$tabs == 'Region Input')
+      {updateSelectizeInput(session = session, 
+                            inputId = 'cpg', 
+                            choices = cpg_related_to_region(), 
+                            server = TRUE, 
+                            selected = '')}
+      else if(input$tabs == 'CpG Input')
+      {updateSelectizeInput(session = session, 
+                            inputId = 'cpg', 
+                            choices = get_cpg_input(), 
+                            server = TRUE, 
+                            selected = '')}
+      
       
     })
   
-  ##retrive cpg name when click the datatable
-  event_submit3 <- eventReactive(input$submit2, {input$cpg})
+  ############  reset button ############  
+  #reset the input and outputs when click the reset button
+  observeEvent(input$reset_cpg_input, {reset('cpg_name')})
+  observeEvent(input$reset_gene_input, {reset('gene_name') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg')})
+  observeEvent(input$reset_region_input, {reset('chr') & reset('start') & reset('end')& reset('cpg_number_input_region')})
+  observeEvent(input$reset_gene_input, {input_value$input_value <- FALSE})
+  observeEvent(input$reset_cpg_input, {input_value$input_value <- FALSE})
+  observeEvent(input$reset_region_input, {input_value$input_value <- FALSE})
+  #reset the input and output when switch between tabs
+  observeEvent(input$tabs, {input_value$input_value <- FALSE})
+  observeEvent(input$tabs, reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & reset('end') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg'))
   
-  #produce boxplots of selected cpgs
-  observeEvent(input$info_cell_clicked, 
+  ############  submit button ############
+  #store inputs into reactive values
+  input_value <- reactiveValues(input_value = FALSE)
+  #get input values when click the submit button
+  observeEvent(input$submit_cpg_input, {input_value$input_value <- input$submit_cpg_input})
+  observeEvent(input$submit_gene_input, {input_value$input_value <- input$submit_gene_input})
+  observeEvent(input$submit_gene_input, {reset('cpg_number_input')& reset('range_cpg') &reset('cpg')})
+  observeEvent(input$submit_region_input, {input_value$input_value <- input$submit_region_input})
+  observeEvent(input$submit_region_input, {reset('cpg_number_input_region') & reset('cpg')})
+  
+  
+  ############  datatable output ############
+  #make an empty datatable as default
+  empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
+  #datatable to show cpg annotation information 
+  
+  output$dt_anno_cpg <- DT::renderDataTable({
+    #output an empty datatable when no inputs
+    if (input_value$input_value == FALSE)
+      return(DT:: datatable(empty_df, 
+                            options = list(paging = FALSE, 
+                                           searching = FALSE)))
+    #output a datatable when input a gene name
+    isolate(if(input$tabs == 'Gene Input') {
+      
+      DT::datatable(
+        make_datatable(gene_name = input$gene_name, 
+                       cpg_name = NULL,
+                       Chr = NULL, Start = NULL, End = NULL)[,input$checkbox,drop = FALSE],
+        options = list(pageLength = 5),
+        selection = 'single',
+        rownames = FALSE) %>%
+        formatStyle(1, cursor = 'pointer', color = 'blue')}
+      
+      #output a datatable when input cpgs
+      else if(input$tabs == 'CpG Input') {
+        
+        DT::datatable(
+          make_datatable(gene_name = NULL, cpg_name = input$cpg_name, 
+                         Chr = NULL, Start = NULL, End = NULL)[,input$checkbox, drop = FALSE], 
+          options = list(pageLength = 5),
+          selection = 'single',
+          rownames = FALSE) %>%
+          formatStyle(1, cursor = 'pointer', color = 'blue')
+      } else if(input$tabs == 'Region Input') {#output a datatable when input a region
+        
+        DT::datatable(
+          make_datatable(
+            gene_name = NULL, cpg_name = NULL,
+            Chr = input$chr, Start = input$start, End = input$end
+          )[,input$checkbox, drop = FALSE],
+          options = list(pageLength = 5),
+          selection = 'single',
+          rownames = FALSE
+        ) %>%
+          formatStyle(1, cursor = 'pointer', color = 'blue')
+        
+      })
+  }
+  )
+  ############  annoplot output: default to show first 50 cpgs############
+  #gene cpg plots
+  output$annoplot <- renderPlot(
+    {
+      #return empty when no inputs
+      if (input_value$input_value  == FALSE) return()
+      #output a plot when input a gene
+      else if(input$tabs == 'Gene Input')
+      {
+        annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
+      }
+      #output a plot when input cpgs
+      else if(input$tabs == 'CpG Input')
+      {
+        annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
+                             Chr = NULL, Start = NULL, End = NULL, 
+                             Tissue_type = input$checkbox_tissue)
+      }
+      #output a plot when input a region
+      else if(input$tabs == 'Region Input')
+      {
+        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                             Start = input$start, End = input$end, Chr = input$chr, 
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex)
+      }
+      
+      
+    }
+  )
+  ############  annoplot output: choose cpg number (given a gene input) ############
+  #get the input when click submit button
+  get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
+  get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
+  get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
+  get_region_start<- eventReactive(input$submit_region_input, {input$start})
+  get_region_end<- eventReactive(input$submit_region_input, {input$end})
+  #store cpg number into reactive value
+  cpg_number <- reactiveValues(cpg_number = 50)
+  #get the cpg number input
+  observeEvent(input$submit_cpg_number, {cpg_number$cpg_number <- input$cpg_number_input})
+  #reset cpg number into default(50) when select another gene
+  observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 50})
+  #update the plot when change the cpg number to show
+  observeEvent(input$submit_cpg_number, {output$annoplot <- renderPlot(
+    if (input_value$input_value  == FALSE) return()
+    else if(input$tabs == 'Gene Input')
+    {
+      annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           cpg_number = cpg_number$cpg_number, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+      
+    }
+    #output a plot when input cpgs
+    else if(input$tabs == 'CpG Input')
+    {
+      annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+    #output a plot when input a region
+    else if(input$tabs == 'Region Input')
+    {
+      annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                           Start = get_region_start(), 
+                           End = get_region_end(), 
+                           Chr = get_region_chr(), 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+  )
+  })
+  ############  annoplot output: choose cpg number (given a region input) ############
+  #store cpg number into reactive value
+  cpg_number_region <- reactiveValues(cpg_number = 50)
+  #get the cpg number input
+  observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <- input$cpg_number_input_region})
+  #reset cpg number into default(50) when select another gene
+  observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 50})
+  #update the plot when change the cpg number to show
+  observeEvent(input$submit_cpg_number_region, {output$annoplot <- renderPlot(
+    if (input_value$input_value  == FALSE) return()
+    else if(input$tabs == 'Gene Input')
+    {
+      annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(),
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+      
+    }
+    #output a plot when input cpgs
+    else if(input$tabs == 'CpG Input')
+    {
+      annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+    #output a plot when input a region
+    else if(input$tabs == 'Region Input')
+    {
+      annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                           Start = get_region_start(), 
+                           End = get_region_end(), 
+                           Chr = get_region_chr(), 
+                           cpg_number = cpg_number_region$cpg_number, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+  )
+  })
+  
+  ############  annoplot output: choose a set of cpg (given a gene input)############
+  #store cpg_start and cpg_end into reactive value
+  cpg_start <- reactiveValues(cpg_start = 1)
+  cpg_end <- reactiveValues(cpg_start = 50)
+  #get the cpg set input
+  observeEvent(input$submit_cpg_set, {cpg_start$cpg_start <- input$range_cpg[1]
+  cpg_end$cpg_end <- input$range_cpg[2]})
+  #reset cpg set when select another gene
+  observeEvent(input$submit_gene_input, {cpg_start$cpg_start = 1
+  cpg_end$cpg_end = 50})
+  #update the plot when change the cpg number to show
+  observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
+    if (input_value$input_value  == FALSE) return()
+    else if(input$tabs == 'Gene Input')
+    {
+      annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+      
+    }
+    #output a plot when input cpgs
+    else if(input$tabs == 'CpG Input')
+    {
+      annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                           Chr = NULL, Start = NULL, End = NULL, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+    #output a plot when input a region
+    else if(input$tabs == 'Region Input')
+    {
+      annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                           Start = get_region_start(), 
+                           End = get_region_end(), 
+                           Chr = get_region_chr(), 
+                           first_cpg = cpg_start$cpg_start, 
+                           end_cpg = cpg_end$cpg_end, 
+                           Tissue_type = input$checkbox_tissue,
+                           Sex_type = input$checkbox_sex)
+    }
+  )
+  })
+  
+  ############  boxplot output ############
+  ##retrive cpg name when click the datatable
+  get_cpg_from_dt <- eventReactive(input$submit_cpg_gene_input, {input$cpg})
+  
+  #produce a boxplot based on the selected cpg from datatable
+  observeEvent(input$dt_anno_cpg_cell_clicked, 
                {
-                 c_info = input$info_cell_clicked
+                 c_info = input$dt_anno_cpg_cell_clicked
                  
-                 output$boxplot_individual <- renderPlot(
+                 output$boxplot_selected_cpg <- renderPlot(
                    {
                      if (!is.null(c_info$value))
                      {
-                       boxplot_individual(c_info$value)
+                       boxplot_selected(c_info$value, sex_type = input$checkbox_sex)
                      }
-                     else if(!is.null(event_submit3()))
+                     else if(!is.null(get_cpg_from_dt()))
                      {
-                       boxplot_individual(event_submit3())
+                       boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
                      }
                    }
                  )
                })
+  #produce a boxplot based on the selected cpg using search box
+  observeEvent(input$submit_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    {
+      boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
+    }
+  )})
   
-  observeEvent(input$submit2, 
-               {
-                 output$info <- 
-                   DT::renderDataTable(
-                     DT::datatable(
-                       cpg_info_total(
-                         cpg_name = event_submit(), 
-                         gene_name = event_submit2())[,input$checkbox, drop = FALSE], 
-                       options = list(pageLength = 5),
-                       selection = 'single',
-                       rownames = FALSE) %>% 
-                       formatStyle(1, cursor = 'pointer', color = 'blue'))
-               })
+  ############  reset boxplot output ############
+  #reset the associated cpg inputs in search box
+  observeEvent(input$reset_cpg_gene_input, {reset('cpg')})
+  #reset the boxplot when click the reset button
+  observeEvent(input$reset_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    {
+      return()
+    }
+  )})
+  #reset the boxplot when switch between tabs
+  observeEvent(input$tabs, {output$boxplot_selected_cpg <- renderPlot(
+    {
+      return()
+    }
+  )})
+  #reset the boxplot when change into another gene
+  observeEvent(input$submit_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    {
+      return()
+    }
+  )})
+  #reset the boxplot when reset gene input
+  observeEvent(input$reset_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    {
+      return()
+    }
+  )})
   
-  #reset button
-  observeEvent(input$reset, {reset('name')})
-  observeEvent(input$reset, {reset('gene')})
-  observeEvent(input$reset2,{reset('cpg')})
+  
 }
 
-server <- function(input, output, session) {
-  #searching list
-  updateSelectizeInput(session = session, inputId = 'name', 
-                       choices = cpg$value, server = TRUE)
-  
-  updateSelectizeInput(session = session, inputId = 'gene', 
-                       choices = gene$gene, selected = '',server = TRUE)
-  
-  #produce output when click submit button
-  event_submit <- eventReactive(input$submit, {input$name})
-  event_submit2 <- eventReactive(input$submit, {input$gene})
-  empty_df <- anno[0,]
-  
-  #cpg site information datatable
-  output$info <- DT::renderDataTable({ 
-    if (input$submit == FALSE)
-      return(DT:: datatable(empty_df, 
-                            options = list(paging = FALSE, 
-                                           searching = FALSE)))
-    DT::datatable(cpg_info_total(cpg_name = event_submit(), 
-                                 gene_name = event_submit2())[,input$checkbox, 
-                                                              drop = FALSE], 
-                  options = list(pageLength = 5),
-                  selection = 'single',
-                  rownames = FALSE) %>% 
-      formatStyle(1, cursor = 'pointer', color = 'blue')
-  }
-  )
-  
-  # find the number of transcripts for selected gene
-  n_trans <- function(gene_name = NULL){
-    anno_gene <- anno %>%
-      filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol),
-             cpg %in% rownames(betas)) %>%
-      arrange(desc(start))
-    n_trans <- anno_gene$genes_tx_id %>% 
-      str_split(', ') %>% 
-      unlist() %>% 
-      unique %>% 
-      length()
-    n_trans
-  }
-  #plot height changes depends on the number of transcripts
-  plotHeight <- reactive({
-    if (n_trans(event_submit2()) > 20)
-    {
-      return(1000)
-    }
-    else
-    {
-      return(900)
-    }
-  })
-  #gene cpg plots
-  output$plot_cpg <- renderPlot(
-    {
-      stat_plot(cpg_name = event_submit(), gene_name = event_submit2()) 
-      
-    },
-    #set plot height depends on the number of transcipts
-    height = plotHeight
-    
-  )
-  
-  #boxplot
-  output$boxplot_total <- renderPlot(
-    { 
-      boxplot_total(cpg_name = event_submit(), 
-                    gene_name = event_submit2(), 
-                    nrow = (as.numeric(input$num) %/% 7))
-    }
-  )
-  
-  #related cpg site
-  b <- reactive(fn_cpg(event_submit2()))
-  #searching list (cpg sites related to selected gene)
-  observe(
-    {
-      updateSelectizeInput(session = session, 
-                           inputId = 'cpg', 
-                           choices = b(), 
-                           server = TRUE, 
-                           selected = '')
-      
-    })
-  
-  ##retrive cpg name when click the datatable
-  event_submit3 <- eventReactive(input$submit2, {input$cpg})
-  
-  #produce boxplots of selected cpgs
-  observeEvent(input$info_cell_clicked, 
-               {
-                 c_info = input$info_cell_clicked
-                 
-                 output$boxplot_individual <- renderPlot(
-                   {
-                     if (!is.null(c_info$value))
-                     {
-                       boxplot_individual(c_info$value)
-                     }
-                     else if(!is.null(event_submit3()))
-                     {
-                       boxplot_individual(event_submit3())
-                     }
-                   }
-                 )
-               })
-  
-  observeEvent(input$submit2, 
-               {
-                 output$info <- 
-                   DT::renderDataTable(
-                     DT::datatable(
-                       cpg_info_total(
-                         cpg_name = event_submit(), 
-                         gene_name = event_submit2())[,input$checkbox, drop = FALSE], 
-                       options = list(pageLength = 5),
-                       selection = 'single',
-                       rownames = FALSE) %>% 
-                       formatStyle(1, cursor = 'pointer', color = 'blue'))
-               })
-  
-  #reset button
-  observeEvent(input$reset, {reset('name')})
-  observeEvent(input$reset, {reset('gene')})
-  observeEvent(input$reset2,{reset('cpg')})
-}
 
+## --------------------------------------------------------------------------------------
 shinyApp(ui, server)
+
