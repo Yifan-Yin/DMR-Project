@@ -105,3 +105,34 @@ saveRDS(anno, here('data', 'annotation.rds'))
 saveRDS(pDat, here('data', 'pDat.rds'))
 saveRDS(betas, here('data', 'betas.rds'))
 ```
+
+## IGV style plots
+
+These plots for the expanded view requires transcript models. Here I use the R package annotatr to download these.
+
+```{r}
+library(annotatr)
+#ect annotations for intersection with regions
+# Note inclusion of custom annotation, and use of shortcuts
+annots <- c('hg19_cpgs', 'hg19_basicgenes', 'hg19_genes_intergenic',
+           'hg19_genes_intronexonboundaries')
+
+# Build the annotations (a single GRanges object)
+annotations <- build_annotations(genome = 'hg19', annotations = annots)
+annotations <- annotations %>%
+  as_tibble() %>%
+  mutate(type = gsub('genes_', '',
+                     gsub('hg19_', '', type)),
+         type = fct_relevel(type,
+                            c('1to5kb', 'promoters', '5UTRs', 
+                              'exons', 'introns', 'intronexonboundaries', 
+                              '3UTRs',
+                              'cpg_islands', 'cpg_shores', 'cpg_shelves', 'cpg_inter'))) 
+object.size(annotations)
+```
+
+# Save data
+
+```{r eval = FALSE}
+saveRDS(annotations, here('data', 'annotation_annotatr.rds'))
+```
