@@ -107,7 +107,7 @@ ui <- fluidPage(
       
       sliderInput('range_cpg', 
                   'Select number of CpGs within gene to plot (useful if there are too many CpGs):',
-                  min = 1, max = 300, value = c(1,50)),
+                  min = 1, max = 500, value = c(1,250)),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
@@ -420,13 +420,13 @@ server <- function(input, output, session) {
     ############  annoplot output: choose a set of cpg (given a gene input)############
     #store cpg_start and cpg_end into reactive value
     cpg_start <- reactiveValues(cpg_start = 1)
-    cpg_end <- reactiveValues(cpg_start = 50)
+    cpg_end <- reactiveValues(cpg_start = 500)
     #get the cpg set input
     observeEvent(input$submit_cpg_set, {cpg_start$cpg_start <- input$range_cpg[1]
                                         cpg_end$cpg_end <- input$range_cpg[2]})
     #reset cpg set when select another gene
     observeEvent(input$submit_gene_input, {cpg_start$cpg_start = 1
-                                           cpg_end$cpg_end = 50})
+                                           cpg_end$cpg_end = 500})
     #update the plot when change the cpg number to show
     observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
       if (input_value$input_value  == FALSE) return()
