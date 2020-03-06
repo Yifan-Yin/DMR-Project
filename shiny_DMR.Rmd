@@ -56,17 +56,17 @@ ui <- fluidPage(
                actionButton('reset_gene_input','Clear')),
       
       #page of cpgs input
-      tabPanel('CpG Input',
+      #tabPanel('CpG Input',
                
                #cpg search list
-               selectizeInput('cpg_name', '',
-                              choices = NULL,
-                              multiple = TRUE,
-                              options = list(placeholder='Enter CpG site names' )),
+      #         selectizeInput('cpg_name', '',
+      #                        choices = NULL,
+      #                        multiple = TRUE,
+      #                        options = list(placeholder='Enter CpG site names' )),
                
                #action button to submit and reset input
-               actionButton("submit_cpg_input", "Plot"),
-               actionButton('reset_cpg_input','Clear')),
+      #         actionButton("submit_cpg_input", "Plot"),
+      #         actionButton('reset_cpg_input','Clear')),
       
       #page of region input
       tabPanel('Region Input',
