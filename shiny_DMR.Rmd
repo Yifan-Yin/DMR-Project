@@ -106,7 +106,7 @@ ui <- fluidPage(
                          selected = unique(pDat$Trimester)),
       
       sliderInput('range_cpg', 
-                  'Select number of CpGs within gene to plot (useful if there are too many CpGs):',
+                  'Select number of CpGs to plot (only applies to Condensed View):',
                   min = 1, max = 500, value = c(1,250)),
       actionButton('submit_cpg_set','Submit'),
       br(),
@@ -127,13 +127,17 @@ ui <- fluidPage(
         type = 'tabs',
       
         # First tab
-        tabPanel("Browser",
+        tabPanel("Condensed View",
                  
                  br(),
                  textOutput('text'),
                  plotOutput('annoplot', height = 1100)),
         
-        # Second tab
+        tabPanel("Expanded View",
+                 
+                 br(),
+                 plotOutput('expanded', height = 900)),
+        
         tabPanel("CpG Boxplots",
                  p('Show boxplots for specific CpGs:'),
                  
@@ -295,7 +299,8 @@ server <- function(input, output, session) {
         })
       }
     )
-    ############  annoplot output: default to show first 50 cpgs############
+    
+    ############  annoplot output: default to show first 250 cpgs############
     #gene cpg plots
     output$annoplot <- renderPlot(
       {
@@ -339,12 +344,13 @@ server <- function(input, output, session) {
     get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
     get_region_start<- eventReactive(input$submit_region_input, {input$start})
     get_region_end<- eventReactive(input$submit_region_input, {input$end})
+    
     #store cpg number into reactive value
-    cpg_number <- reactiveValues(cpg_number = 50)
+    cpg_number <- reactiveValues(cpg_number = 250)
     #get the cpg number input
     observeEvent(input$submit_cpg_number, {cpg_number$cpg_number <- input$cpg_number_input})
     #reset cpg number into default(50) when select another gene
-    observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 50})
+    observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 250})
     #update the plot when change the cpg number to show
     observeEvent(input$submit_cpg_number, {output$annoplot <- renderPlot(
       if (input_value$input_value  == FALSE) return()
@@ -379,11 +385,12 @@ server <- function(input, output, session) {
     })
     ############  annoplot output: choose cpg number (given a region input) ############
     #store cpg number into reactive value
-    cpg_number_region <- reactiveValues(cpg_number = 50)
+    cpg_number_region <- reactiveValues(cpg_number = 250)
     #get the cpg number input
-    observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <- input$cpg_number_input_region})
+    observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <-
+      input$cpg_number_input_region})
     #reset cpg number into default(50) when select another gene
-    observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 50})
+    observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 250})
     #update the plot when change the cpg number to show
     observeEvent(input$submit_cpg_number_region, {output$annoplot <- renderPlot(
       if (input_value$input_value  == FALSE) return()
@@ -464,6 +471,33 @@ server <- function(input, output, session) {
         }
       )
     })
+    
+    
+    
+    ############  Expanded view output ############
+    ############  (given a gene input) ############
+    #gene cpg plots 
+    output$expanded <- renderPlot(
+      {
+      #return empty when no inputs
+      if (input_value$input_value  == FALSE) return()
+        
+      #output a plot when input a gene
+      else if(input$tabs == 'Gene Input')
+        {
+        expanded_view(gene_name = input$gene_name, 
+                
+                start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
+                end_extend = 2500,   # how far to extend right
+                show_transcript_gene = TRUE, # show transcripts associated gene symbol
+                breaks_width = 15000, # determines the spacing of x axis breaks
+                trimester = input$checkbox_trimester, # can be Third, First, or Both
+                sex = input$checkbox_sex, # can be Male, Female, or Both
+                tissue = input$checkbox_tissue,
+                plot_sizes = c(3,1))
+      }
+        }
+      )
     
     ############  boxplot output ############
     ##retrive cpg name when click the datatable

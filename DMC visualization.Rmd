@@ -32,6 +32,9 @@ anno <- readRDS(here('data', 'annotation.rds'))
 color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
+
+#  transcript models for exapnded view
+anno_annotatr <- readRDS(here('data', 'annotation_annotatr.rds'))
 ```
 
 ## Rename column names
@@ -156,8 +159,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  }
-  else if (!is.null(gene_name) & !is.null(first_cpg) & !is.null(end_cpg)){
+  } else if (!is.null(gene_name) & !is.null(first_cpg) & !is.null(end_cpg)){
 
     # If a gene symbol is supplied,
     # filter to gene in annotation
@@ -170,8 +172,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     if (nrow(anno_gene) == 0) {
       stop('No cpgs found, maybe they were filtered out.')
     }
-  }
-  else if (!is.null(cpg_name)){
+  }  else if (!is.null(cpg_name)){
       
       # If a cpg is provided,
       # filter annotation to cpgs
@@ -190,8 +191,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                      setdiff(cpg_name, rownames(betas))))
       }
       
-  }   
-      else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & is.null(first_cpg) & is.null(end_cpg)){
+  } else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & is.null(first_cpg) & is.null(end_cpg)){
         
         #get cpg sites within a given region
         cpg_name <- find_cpg_from_region(Chr, Start, End)
@@ -204,8 +204,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       if (nrow(anno_gene) == 0) {
       stop('No cpgs found in the selected region')
     }
-      }
-      else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
+      } else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
         
         #get cpg sites within a given region
         cpg_name <- find_cpg_from_region(Chr, Start, End)
@@ -214,14 +213,15 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
         arrange(chr, desc(start)) %>% slice(first_cpg : end_cpg)
-      # stop if no cpgs were found
-      if (nrow(anno_gene) == 0) {
-      stop('No cpgs found in the selected region')
-    }
-      }
-      else {
-      stop('Enter valid cpg(s) OR one specific gene.')
-  }
+      
+        # stop if no cpgs were found
+        if (nrow(anno_gene) == 0) {
+          stop('No cpgs found in the selected region')
+        }
+        } else {
+          stop('Enter valid cpg(s) OR one specific gene.')
+          
+          }
   
   ######## SETUP INPUT TO PLOTS ###############
   #
@@ -625,7 +625,7 @@ sample_info_cpg <- function(cpg_name){
 }
 ```
 
-## Plot function
+## boxplots function
 
 ```{r}
 #boxplots which show beta values based on cell types
@@ -647,5 +647,169 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
       scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
       scale_fill_manual(values = colors) +
       scale_color_manual(values = colors) 
+}
+```
+
+¶# 4. Expanded view (IGV)
+
+igv style plots
+
+```{r}
+expanded_view <- function(gene_name = NULL, 
+                
+                start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
+                end_extend = 2500,   # how far to extend right
+                
+                show_transcript_gene = TRUE, # show transcripts associated gene symbol
+                breaks_width = 15000, # determines the spacing of x axis breaks
+                
+                highlight_region = NULL, # a df with start end columns, indicating regions to highlight
+                
+                trimester = c('Third', 'First'), # can be Third, First, or Both
+                sex = c('F', 'M'), # can be Male, Female, or Both
+                tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
+                           "Trophoblasts cs", "Stromal cs"),
+                plot_sizes = c(3,1) # a 2-element numeric vector indicating the relative plot heights 
+                                    # of the methylation plot to the transcript plot
+                
+                # required components:
+                # pDat with columns Sample_Name, Trimester, Sex, and Tissue
+                # betas_filt data.frame with column names == pDat$Sample_Name
+                # anno_annotatr data frame that is contains a column cpg, genes_symbol, chr, start, end
+                # the cpgs in anno_annotatr and betas_filt need to be exactly the same, and same order
+                # annotation data.frame that I built from annotatr, and slightly cleaned
+                
+                ) {
+  
+  # subset to relevant samples
+  pDat <- pDat %>%
+      filter(Trimester %in% trimester,
+             Sex %in% sex,
+             Tissue %in% tissue)
+   
+  # subset to cpgs associated with gene
+  anno_gene_subset <- anno %>%
+    filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol)) %>% 
+    dplyr::select(chr, start, end) 
+  
+  c <- unique(anno_gene_subset$chr)
+  s <- min(anno_gene_subset$start) # first cpg
+  e <- max(anno_gene_subset$start) # last cpg
+  s_extend <- s - start_extend
+  e_extend <- e + end_extend
+  
+  region_of_interest <- anno %>%
+    filter(cpg %in% rownames(betas),
+           chr == c, start > s_extend, end < e_extend)
+  
+  # subset betas
+  b <- betas[region_of_interest$cpg, pDat$deidentified_id] %>%
+    as.data.frame() %>%
+    bind_cols(cpg = rownames(.), .) %>%
+    pivot_longer(cols = -cpg,
+                 names_to = 'deidentified_id',
+                 values_to = 'beta') %>%
+    left_join(anno, by = 'cpg') %>% 
+    right_join(pDat, by = 'deidentified_id') 
+  
+  
+  p1 <- b %>%
+    
+    # calculate mean beta for each cpg for each tissue
+    group_by(cpg, Tissue) %>%
+    summarize(mean = mean(beta), start = dplyr::first(start)) %>%
+    
+    # plot methylation means
+    ggplot(aes(x = start)) +
+    geom_linerange(ymin = 0, aes(ymax = mean, color = Tissue)) +
+    
+    facet_wrap(vars(Tissue), ncol = 1, strip.position = 'left',
+               labeller = labeller(Tissue = function(x)gsub(' cs', '', x))) +
+    
+    theme_bw(base_size = 16) +
+    theme(strip.background = element_blank(),
+          strip.text.y = element_text(angle = 180, hjust = 1),
+          strip.placement = 'outside',
+          axis.ticks = element_blank(),
+          axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.line = element_line(size = 0.5),
+          panel.border = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.spacing = unit(0, 'lines'),
+          #panel.grid = element_blank()
+          ) +
+    scale_y_continuous(limits = c(0,1), breaks = c(0,1), expand = c(0,0), labels = NULL) +
+    scale_x_continuous(limits = c(s_extend, e_extend), expand = c(0,0), 
+                       breaks = scales::breaks_width(15000),
+                       labels = scales::number) +
+    scale_color_manual(values = colors, guide = 'none') +
+    labs(y = '', x = '', title = gene_name, 
+         subtitle = paste0(c, ': ', scales::comma(s), ' - ', scales::comma(e)));p1
+  
+  p2 <- anno_annotatr %>%
+    filter(seqnames == as.character(c), start > s_extend, end < e_extend,
+           type %in% c('exons', 'introns', 'promoters')) %>%
+    
+    mutate(symbol = ifelse(is.na(symbol), '', symbol)) %>%
+    ggplot(aes(x = start, xend = end)) +
+    geom_segment(y= 0.5, yend = 0.5, aes(size = type, color = type))  +
+    facet_wrap(~symbol + tx_id, ncol = 1, strip.position = 'left') +
+    theme_bw(base_size = 16)+
+    theme(strip.background = element_blank(),
+          strip.text.y  = element_text(angle = 180),
+          strip.placement = 'outside',
+          legend.position = 'bottom',
+          plot.title =  element_blank(),
+          plot.subtitle = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks = element_blank(),
+          axis.line = element_line(size = 0.5),
+          panel.spacing = unit(0, 'lines'),
+          panel.grid.major.y = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.border = element_blank(),
+          legend.key.size = unit(0.5, 'cm'),
+          legend.spacing = unit(0.25, 'cm')) +
+    scale_size_manual(values = c('exons' = 7, 'introns' = 1, 'intronexonboundaries' = 3,
+                                 '5UTRs' = 5, '3UTRs' = 6,
+                                 '1to5kb' = 2,
+                                 'promoters' = 2,
+                                 
+                                 'cpg_inter' = 1,
+                                 'cpg_islands' = 5,
+                                 'cpg_shores' = 4,
+                                 'cpg_shelves' = 3)) +
+    scale_color_manual(values = c('exons' = 'black', 'introns' = 'black', 'intronexonboundaries' = 'black',
+                                 '5UTRs' = 'grey', '3UTRs' = 'grey',
+                                 '1to5kb' = 'grey',
+                                 'promoters' = 'forestgreen',
+                                 
+                                 'cpg_inter' = 1,
+                                 'cpg_islands' = 5,
+                                 'cpg_shores' = 4,
+                                 'cpg_shelves' = 3)) +
+    scale_x_continuous(limits = c(s_extend,e_extend), 
+                       expand = c(0,0), 
+                       labels = scales::number,
+                       breaks = scales::breaks_width(15000)) +
+    scale_y_continuous(expand = c(0,0)) +
+    labs(x = 'position', size = '', color = '');p2
+  
+  if (!is.null(highlight_region)) {
+    p1 <- p1 + 
+      geom_rect(data = highlight_region,
+                aes(xmin = start, xmax = end),
+                ymin = 0, ymax = 1,
+                alpha = 0.1)
+    p2 <- p2 + 
+      geom_rect(data = highlight_region,
+                aes(xmin = start, xmax = end),
+                ymin = 0, ymax = 1,
+                alpha = 0.1)
+  }
+  egg::ggarrange(p1,p2, ncol = 1, heights = plot_sizes) #H:4.25, #w: 3.25
+
 }
 ```
