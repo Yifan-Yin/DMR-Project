@@ -139,7 +139,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                                  End = NULL, cpg_number = 50, 
                                  first_cpg = NULL, end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
-                                 Sex_type = c('F', 'M')){
+                                 Sex_type = c('F', 'M'),
+                                 Trimester_type = c('Third', 'First')){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -252,7 +253,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       # add tissue and trimester info
       left_join(pDat %>% select(deidentified_id, Trimester, Tissue, Sex), by = 'deidentified_id') %>%
       
-      filter(Sex %in% Sex_type) %>%
+      filter(Sex %in% Sex_type,
+             Trimester %in% Trimester_type) %>%
       
       # calculate mean and sd for each cpg for each group
       group_by(Tissue, Trimester, cpg) %>%
@@ -306,12 +308,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
           panel.grid.minor.y = element_blank(),
           panel.grid.major.y = element_blank(),
           
-          panel.spacing.y = unit(0.5, 'cm'),
+          panel.spacing.y = unit(0.1, 'cm'),
           
           strip.background = element_blank(),
           strip.text = element_text(face = 'bold', hjust = 0),
           
-          plot.margin=margin(l=-0.1, unit="cm")) +
+          plot.margin = unit(c(0, 2, 0, 2), 'pt')) +
     scale_y_continuous(limits = c(0, 100), 
                        expand = c(0, 0), 
                        labels = function(x)paste0(x, '%')) +
@@ -364,7 +366,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
               
               legend.text = element_text(size = 14),
               
-              plot.margin = margin(l=-0.1,unit="cm"),
+              plot.margin = unit(c(0, 2, 0, 2), 'pt'),
               plot.background = element_rect(fill = '#f7f7f7'),
               
               strip.background = element_blank(),
@@ -426,7 +428,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
           
           legend.text = element_text(size = 14),
           
-          plot.margin = margin(l=-0.1,unit="cm"),
+          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
           
           strip.background = element_blank(),
           strip.text = element_text(face = 'bold', hjust = 0)) +
@@ -517,7 +519,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
           axis.text.y = element_text(vjust = 0.5),
           axis.ticks = element_blank(),
           
-          plot.margin = margin(l=-0.1,unit="cm"),
+          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
           
           legend.text = element_text(size = 14),
           
@@ -541,6 +543,10 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   
   # number of transcripts
   n_trans <- betas_gene$genes_tx_id %>% str_split(', ') %>% unlist() %>% unique %>% length()
+  
+  
+  # maximum size of transcript plot is "25"
+  n_trans <- min(c(n_trans, 25))
   
   # size of p1
   p1_h <- 40

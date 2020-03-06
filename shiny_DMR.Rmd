@@ -100,6 +100,11 @@ ui <- fluidPage(
                          setNames(c('F', 'M'), c('Female', 'Male')),
                          selected = unique(pDat$Sex)),
       
+      checkboxGroupInput('checkbox_trimester',
+                         'Include:',
+                         setNames(c('First', 'Third'), c('First', 'Third/Term')),
+                         selected = unique(pDat$Trimester)),
+      
       sliderInput('range_cpg', 
                   'Select number of CpGs within gene to plot (useful if there are too many CpGs):',
                   min = 1, max = 300, value = c(1,50)),
@@ -126,7 +131,7 @@ ui <- fluidPage(
                  
                  br(),
                  textOutput('text'),
-                 plotOutput('annoplot', height = 900)),
+                 plotOutput('annoplot', height = 1100)),
         
         # Second tab
         tabPanel("CpG Boxplots",
@@ -216,14 +221,18 @@ server <- function(input, output, session) {
     ############  reset button ############  
     #reset the input and outputs when click the reset button
     observeEvent(input$reset_cpg_input, {reset('cpg_name')})
-    observeEvent(input$reset_gene_input, {reset('gene_name') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg')})
-    observeEvent(input$reset_region_input, {reset('chr') & reset('start') & reset('end')& reset('cpg_number_input_region')})
+    observeEvent(input$reset_gene_input, {
+      reset('gene_name') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg')})
+    observeEvent(input$reset_region_input, {
+      reset('chr') & reset('start') & reset('end')& reset('cpg_number_input_region')})
     observeEvent(input$reset_gene_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_cpg_input, {input_value$input_value <- FALSE})
     observeEvent(input$reset_region_input, {input_value$input_value <- FALSE})
     #reset the input and output when switch between tabs
     observeEvent(input$tabs, {input_value$input_value <- FALSE})
-    observeEvent(input$tabs, reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & reset('end') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg'))
+    observeEvent(input$tabs, 
+                 reset('cpg_name') & reset('gene_name') & reset('chr') & reset('start') & 
+                   reset('end') & reset('cpg_number_input') & reset('range_cpg') & reset('cpg'))
     
     ############  submit button ############
     #store inputs into reactive values
@@ -231,7 +240,8 @@ server <- function(input, output, session) {
     #get input values when click the submit button
     observeEvent(input$submit_cpg_input, {input_value$input_value <- input$submit_cpg_input})
     observeEvent(input$submit_gene_input, {input_value$input_value <- input$submit_gene_input})
-    observeEvent(input$submit_gene_input, {reset('cpg_number_input')& reset('range_cpg') &reset('cpg')})
+    observeEvent(input$submit_gene_input, {
+      reset('cpg_number_input')& reset('range_cpg') &reset('cpg')})
     observeEvent(input$submit_region_input, {input_value$input_value <- input$submit_region_input})
     observeEvent(input$submit_region_input, {reset('cpg_number_input_region') & reset('cpg')})
     
@@ -297,14 +307,17 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
         {
         annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
                              Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue)
+                             Tissue_type = input$checkbox_tissue,
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -312,7 +325,8 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
                              Start = input$start, End = input$end, Chr = input$chr, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
         }
       
           
@@ -422,7 +436,8 @@ server <- function(input, output, session) {
                              Chr = NULL, Start = NULL, End = NULL, 
                              first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
         
       }
       #output a plot when input cpgs
@@ -431,7 +446,8 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -443,7 +459,8 @@ server <- function(input, output, session) {
                              first_cpg = cpg_start$cpg_start, 
                              end_cpg = cpg_end$cpg_end, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester)
         }
       )
     })
