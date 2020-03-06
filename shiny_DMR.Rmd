@@ -130,10 +130,14 @@ ui <- fluidPage(
         tabPanel("Condensed View",
                  
                  fluidRow(
-                   p('Adjust heights of individual data tracks:'),
-                   
+                   br(),
+                   tags$h4(
+                     tags$strong(
+                       'Adjust heights of individual data tracks:'
+                       )
+                     ),
                    column(
-                     9,
+                     12,
                      wellPanel(
                        fluidRow(
                        column(
@@ -173,23 +177,28 @@ ui <- fluidPage(
         tabPanel("Expanded View",
                  
                  fluidRow(
-                   
-                   p('Adjust heights of individual data tracks:'),
-                   
+                   br(),
+                   tags$h4(
+                     tags$strong(
+                       'Adjust heights of individual data tracks:'
+                       )
+                     ),
                    column(
-                     4.5,
+                     6, 
                      wellPanel(
-                       column(
-                         4.5,
-                         sliderInput(
-                           'expanded_plot_height_1', 'Methylation',
-                           min = 1, max = 10, value = c(3), step = 1),
-                       ),
-                       column(
-                         4.5,
-                         sliderInput(
-                           'expanded_plot_height_2', 'Transcripts',
-                           min = 1, max = 10, value = c(1), step = 1)
+                       fluidRow(
+                         column(
+                           6,
+                           sliderInput(
+                             'expanded_plot_height_1', 'Methylation',
+                             min = 1, max = 10, value = c(3), step = 1),
+                         ),
+                         column(
+                           6,
+                           sliderInput(
+                             'expanded_plot_height_2', 'Transcripts',
+                             min = 1, max = 10, value = c(1), step = 1)
+                         )
                        )
                      )
                    )
