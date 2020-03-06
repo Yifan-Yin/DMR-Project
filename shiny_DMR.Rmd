@@ -129,11 +129,72 @@ ui <- fluidPage(
         # First tab
         tabPanel("Condensed View",
                  
+                 fluidRow(
+                   p('Adjust heights of individual data tracks:'),
+                   
+                   column(
+                     9,
+                     wellPanel(
+                       fluidRow(
+                       column(
+                         3, 
+                         sliderInput(
+                           'condensed_plot_height_1',
+                           'Methylation',
+                           min = 0, max = 50, value = c(35), step = 1)
+                         ),
+                       column(
+                         3,
+                         sliderInput(
+                           'condensed_plot_height_2',
+                           'Differential Methylation',
+                           min = 0, max = 50, value = c(9), step = 1)),
+                       column(
+                         3, 
+                         sliderInput(
+                           'condensed_plot_height_3',
+                           'Genomic features',
+                           min = 0, max = 50, value = c(6), step = 1)),
+                       column(
+                         3, 
+                         sliderInput(
+                           'condensed_plot_height_4',
+                           'Transcripts',
+                           min = 0, max = 50, value = c(5), step = 1)
+                       )
+                     )
+                   ))
+                   ),
+                 
                  br(),
                  textOutput('text'),
                  plotOutput('annoplot', height = 1100)),
         
         tabPanel("Expanded View",
+                 
+                 fluidRow(
+                   
+                   p('Adjust heights of individual data tracks:'),
+                   
+                   column(
+                     4.5,
+                     wellPanel(
+                       column(
+                         4.5,
+                         sliderInput(
+                           'expanded_plot_height_1', 'Methylation',
+                           min = 1, max = 10, value = c(3), step = 1),
+                       ),
+                       column(
+                         4.5,
+                         sliderInput(
+                           'expanded_plot_height_2', 'Transcripts',
+                           min = 1, max = 10, value = c(1), step = 1)
+                       )
+                     )
+                   )
+                   ),
+                 
                  
                  br(),
                  plotOutput('expanded', height = 900)),
@@ -181,6 +242,7 @@ ui <- fluidPage(
 ```
 
 #Server
+
 ```{r}
 server <- function(input, output, session) {
     ############  searching lists ############
@@ -313,7 +375,11 @@ server <- function(input, output, session) {
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
@@ -322,7 +388,11 @@ server <- function(input, output, session) {
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -331,7 +401,11 @@ server <- function(input, output, session) {
                              Start = input$start, End = input$end, Chr = input$chr, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         }
       
           
@@ -360,7 +434,12 @@ server <- function(input, output, session) {
                              Chr = NULL, Start = NULL, End = NULL, 
                              cpg_number = cpg_number$cpg_number, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         
       }
       #output a plot when input cpgs
@@ -369,7 +448,12 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -379,7 +463,12 @@ server <- function(input, output, session) {
                              End = get_region_end(), 
                              Chr = get_region_chr(), 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         }
       )
     })
@@ -399,7 +488,12 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(),
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         
       }
       #output a plot when input cpgs
@@ -408,7 +502,12 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -419,7 +518,12 @@ server <- function(input, output, session) {
                              Chr = get_region_chr(), 
                              cpg_number = cpg_number_region$cpg_number, 
                              Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex)
+                             Sex_type = input$checkbox_sex,
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         }
       )
     })
@@ -444,7 +548,11 @@ server <- function(input, output, session) {
                              first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         
       }
       #output a plot when input cpgs
@@ -454,7 +562,11 @@ server <- function(input, output, session) {
                              Chr = NULL, Start = NULL, End = NULL, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
       }
       #output a plot when input a region
       else if(input$tabs == 'Region Input')
@@ -467,7 +579,11 @@ server <- function(input, output, session) {
                              end_cpg = cpg_end$cpg_end, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester)
+                             Trimester_type = input$checkbox_trimester,
+                             plot_heights = c(input$condensed_plot_height_1,
+                                              input$condensed_plot_height_2,
+                                              input$condensed_plot_height_3,
+                                              input$condensed_plot_height_4))
         }
       )
     })
@@ -494,7 +610,8 @@ server <- function(input, output, session) {
                 trimester = input$checkbox_trimester, # can be Third, First, or Both
                 sex = input$checkbox_sex, # can be Male, Female, or Both
                 tissue = input$checkbox_tissue,
-                plot_sizes = c(3,1))
+                plot_sizes = c(input$expanded_plot_height_1,
+                               input$expanded_plot_height_2))
       }
         }
       )

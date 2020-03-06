@@ -143,7 +143,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                                  first_cpg = NULL, end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
                                  Sex_type = c('F', 'M'),
-                                 Trimester_type = c('Third', 'First')){
+                                 Trimester_type = c('Third', 'First'),
+                                 plot_heights = c(36, 9, 6, 5)){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -229,8 +230,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
   title <- paste0(
     unique(anno_gene$chr), ':',
-    min(anno_gene$start), '-',
-    max(anno_gene$start)
+    scales::comma(min(anno_gene$start)), '-',
+    scales::comma(max(anno_gene$start))
   )
   
   if (is.null(cpg_name)){
@@ -273,7 +274,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       filter(Tissue %in% Tissue_type)
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
-  font_size <- 12
+  font_size <- 14
   point_size <- 3
   line_size <- 1.25
   
@@ -552,7 +553,13 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   p1_h <- 40
   
   # combine tracks plot
-  ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
+  if (is.null(plot_heights)){
+    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
+  } else {
+    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = plot_heights)
+  }
+  
+  
   }
 
 ```
@@ -650,7 +657,7 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
 }
 ```
 
-¶# 4. Expanded view (IGV)
+# 4. Expanded view (IGV)
 
 igv style plots
 
@@ -745,7 +752,7 @@ expanded_view <- function(gene_name = NULL,
                        labels = scales::number) +
     scale_color_manual(values = colors, guide = 'none') +
     labs(y = '', x = '', title = gene_name, 
-         subtitle = paste0(c, ': ', scales::comma(s), ' - ', scales::comma(e)));p1
+         subtitle = paste0(c, ':', scales::comma(s), '-', scales::comma(e)));p1
   
   p2 <- anno_annotatr %>%
     filter(seqnames == as.character(c), start > s_extend, end < e_extend,
@@ -809,7 +816,7 @@ expanded_view <- function(gene_name = NULL,
                 ymin = 0, ymax = 1,
                 alpha = 0.1)
   }
-  egg::ggarrange(p1,p2, ncol = 1, heights = plot_sizes) #H:4.25, #w: 3.25
+  egg::ggarrange(p1,p2, ncol = 1, heights = plot_sizes) 
 
 }
 ```
