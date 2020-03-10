@@ -102,7 +102,7 @@ ui <- fluidPage(
       
       checkboxGroupInput('checkbox_trimester',
                          'Include:',
-                         setNames(c('First', 'Third'), c('First', 'Third/Term')),
+                         setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
                          selected = unique(pDat$Trimester)),
       
       sliderInput('range_cpg', 
