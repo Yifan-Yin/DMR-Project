@@ -349,6 +349,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
            
            # Add tissue-specific color when significant
            Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
+    filter(Trimester %in% Trimester_type) %>%
     
     {
       ggplot(data = ., aes(y = Significant_num, color = Tissue)) +
