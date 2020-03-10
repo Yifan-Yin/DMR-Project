@@ -252,11 +252,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   p1 <- betas_gene %>%
     ggplot() +
     
+    geom_blank(aes(x = cpg)) +
     # geom_ribbon is to generate the alternating shaded background
-    geom_ribbon(aes(x = as.numeric(cpg), ymin = 0, ymax = 25),
-                fill = 'grey', alpha = 0.15)+
-    geom_ribbon(aes(x = as.numeric(cpg), ymin = 50, ymax = 75),
-                fill = 'grey', alpha = 0.15)+
+    #geom_ribbon(aes(x = as.numeric(cpg), ymin = 0, ymax = 25),
+    #            fill = 'grey', alpha = 0.15)+
+    #geom_ribbon(aes(x = as.numeric(cpg), ymin = 50, ymax = 75),
+    #            fill = 'grey', alpha = 0.15)+
     
     # geom_linerange and geom_point is for the actual methylation data
     geom_linerange(alpha = 0.5, size = line_size, 
@@ -265,11 +266,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     geom_point(alpha = 0.75, aes(x = cpg, y = mean, color = Tissue), size = point_size) +
     
     # we want to facet by trimester
-    facet_wrap(vars(Trimester), ncol = 1, labeller = label_both) +
+    facet_wrap(vars(Trimester), ncol = 1, labeller = label_both, scales = 'free') +
     
     # cosmetics
     theme_bw(base_size = font_size) +
     theme(axis.text.x = element_blank(), 
+          #axis.text.x = element_text(angle = 90),
           axis.text.y = element_text(size = 12),
           axis.ticks.x = element_blank(),
           axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
@@ -284,11 +286,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
           strip.background = element_blank(),
           strip.text = element_text(face = 'bold', hjust = 0),
           
-          plot.margin = unit(c(0, 2, 0, 2), 'pt')) +
+          plot.margin = unit(c(0, 2, 0, 2), 'pt'),) +
     scale_y_continuous(limits = c(0, 100), 
                        expand = c(0, 0), 
+                       breaks = c(0, 50, 100),
                        labels = function(x)paste0(x, '%')) +
-    scale_x_discrete(expand = c(0.01,0.01))+
+    scale_x_discrete(expand = c(0,0.5))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
                        guide = guide_legend(override.aes = list(size = 4)),
                        labels = function(x)gsub(' cs', '', x)) +
@@ -318,10 +321,12 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
            Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
     
     {
-      ggplot(data = ., aes(x = cpg_num, y = Significant_num, color = Tissue)) +
+      ggplot(data = ., aes(y = Significant_num, color = Tissue)) +
+        geom_blank(aes(x = cpg)) +
         geom_point(data = . %>% 
-                     filter(!is.na(Significant_num)), size = point_size) +
-        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1) +
+                     filter(!is.na(Significant_num)), size = point_size,
+                   aes(x =cpg_num)) +
+        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1, aes(x =cpg_num)) +
         facet_grid(rows = vars(Trimester),
                    cols = vars(facet_title),
                    labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
@@ -353,6 +358,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                              as.factor() %>% 
                              levels() %>%
                              gsub(' cs', '', .)) +
+        scale_x_discrete(expand = c(0,0.5)) +
         labs(x = '', y = '')
       
     }
@@ -415,7 +421,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                                                         gsub('pmd', 'Placental PMD',
                                                              gsub('enhancer', 'Enhancer', 
                                                                   x)))))) +
-    scale_x_discrete(expand = c(0,0)) +
+    scale_x_discrete(expand = c(0,0.2)) +
     labs(x = '', y = '', fill = '')
   
   # transcript annotations
@@ -504,7 +510,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                       palette = 'Paired', direction = -1) +
     scale_y_discrete(expand = c(0,0), 
                      labels = function(x)(if_else(x == '(Missing)', '', x))) +
-    scale_x_discrete(expand = c(0,0)) +
+    scale_x_discrete(expand = c(0,0.2)) +
     coord_cartesian(clip = "off") +
     labs(x = '', y = '', fill = '')
   
@@ -901,7 +907,7 @@ ui <- fluidPage(
                      )
                    ),
                    column(
-                     9,
+                     12,
                      wellPanel(
                        fluidRow(
                          column(
@@ -1450,5 +1456,4 @@ server <- function(input, output, session) {
 
 ## ---------------------------------------------------------------------------------
 shinyApp(ui, server)
-
 
