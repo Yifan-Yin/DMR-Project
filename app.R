@@ -1,14 +1,14 @@
-## ----setup, include=FALSE---------------------------------------------------------
+## ----setup, include=FALSE--------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 library(tidyverse)
 library(egg)
 library(here)
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 # sample data
 pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
@@ -24,7 +24,7 @@ colors <- color_code_tissue[unique(pDat$Tissue)]
 anno_annotatr <- readRDS(here('data', 'annotation_annotatr.rds'))
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 # rename column names
 rename_columns <- function(x) {
   dplyr::rename(
@@ -47,7 +47,7 @@ rename_columns <- function(x) {
 }
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 #column names 
 column_names <- anno %>% 
   select(cpg, chr, start, end, 
@@ -57,7 +57,7 @@ column_names <- anno %>%
   names()
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 #list of genes for search list
 gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
@@ -70,7 +70,7 @@ cpg <- unique(anno$cpg)
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 #produce a datatable which shows cpg annotation
 make_datatable <- function(cpg_name = NULL, gene_name = NULL, 
                            Chr = NULL, Start = NULL, End = NULL){
@@ -105,11 +105,11 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
 
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 annoPlot_with_tracks <- function(cpg_name = NULL, 
                                  gene_name = NULL, 
                                  Chr = NULL, Start = NULL, 
-                                 End = NULL, cpg_number = 50, 
+                                 End = NULL, cpg_number = 500, 
                                  first_cpg = NULL, end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
                                  Sex_type = c('F', 'M'),
@@ -319,6 +319,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
            
            # Add tissue-specific color when significant
            Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
+    filter(Trimester %in% Trimester_type) %>%
     
     {
       ggplot(data = ., aes(y = Significant_num, color = Tissue)) +
@@ -514,6 +515,11 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     coord_cartesian(clip = "off") +
     labs(x = '', y = '', fill = '')
   
+  # remove cpg names iftoo many cpgs are displayed
+  if (nrow(anno_gene > 50)) {
+    p3 <- p3 + theme(axis.text.x = element_blank())
+    
+  }
   # the size of each plot depends on the number of unique transcripts
   # More transcripts means a longer transcript track
   # so the plot height depends on the number of transcripts
@@ -540,7 +546,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
 
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 find_cpg_ids <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
@@ -552,7 +558,7 @@ find_cpg_ids <- function(gene_name){
 }
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 find_cpg_from_region <- function(Chr, Start, End){
   
   cpg_name <- anno %>% 
@@ -567,7 +573,7 @@ find_cpg_from_region <- function(Chr, Start, End){
 
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 sample_info_cpg <- function(cpg_name){
   
   cpg <- betas[cpg_name,]
@@ -594,7 +600,7 @@ sample_info_cpg <- function(cpg_name){
 }
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 #boxplots which show beta values based on cell types
 boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
   
@@ -617,7 +623,7 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
 }
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 expanded_view <- function(gene_name = NULL, 
                           
                           start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
@@ -776,7 +782,7 @@ expanded_view <- function(gene_name = NULL,
   
 }
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 #install.packages('rsconnect')
 #install.packages('shinyjs')
 library(rsconnect)
@@ -787,7 +793,7 @@ library(shinyjs)
 library(shinythemes)
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 ui <- fluidPage(
   theme = shinythemes::shinytheme("lumen"),
   
@@ -872,12 +878,12 @@ ui <- fluidPage(
       
       checkboxGroupInput('checkbox_trimester',
                          'Include:',
-                         setNames(c('First', 'Third'), c('First', 'Third/Term')),
+                         setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
                          selected = unique(pDat$Trimester)),
       
       sliderInput('range_cpg', 
                   'Select number of CpGs to plot (only applies to Condensed View):',
-                  min = 1, max = 500, value = c(1,250)),
+                  min = 1, max = 500, value = c(500)),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
@@ -1020,7 +1026,7 @@ ui <- fluidPage(
 )
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 server <- function(input, output, session) {
   ############  searching lists ############
   #searching list of cpgs
@@ -1454,6 +1460,6 @@ server <- function(input, output, session) {
 }
 
 
-## ---------------------------------------------------------------------------------
+## --------------------------------------------------------------------------
 shinyApp(ui, server)
 
