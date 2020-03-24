@@ -139,7 +139,7 @@ This is the middle plot with all the annotation tracks.
 annoPlot_with_tracks <- function(cpg_name = NULL, 
                                  gene_name = NULL, 
                                  Chr = NULL, Start = NULL, 
-                                 End = NULL, cpg_number = 50, 
+                                 End = NULL, cpg_number = 500, 
                                  first_cpg = NULL, end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
                                  Sex_type = c('F', 'M'),
