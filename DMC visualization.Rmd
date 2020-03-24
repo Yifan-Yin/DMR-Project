@@ -545,6 +545,11 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     coord_cartesian(clip = "off") +
     labs(x = '', y = '', fill = '')
   
+  # remove cpg names iftoo many cpgs are displayed
+  if (nrow(anno_gene > 50)) {
+    p3 <- p3 + theme(axis.text.x = element_blank())
+    
+    }
   # the size of each plot depends on the number of unique transcripts
   # More transcripts means a longer transcript track
   # so the plot height depends on the number of transcripts

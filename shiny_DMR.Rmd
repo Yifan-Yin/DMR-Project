@@ -107,7 +107,7 @@ ui <- fluidPage(
       
       sliderInput('range_cpg', 
                   'Select number of CpGs to plot (only applies to Condensed View):',
-                  min = 1, max = 500, value = c(1,250)),
+                  min = 1, max = 500, value = c(500)),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
