@@ -374,51 +374,58 @@ server <- function(input, output, session) {
     
     ############  annoplot output: default to show first 250 cpgs############
     #gene cpg plots
-    output$annoplot <- renderPlot(
+    observeEvent(
+      c(input$submit_region_input,
+        input$submit_gene_input),
       {
-      #return empty when no inputs
-      if (input_value$input_value  == FALSE) return()
-      #output a plot when input a gene
-      else if(input$tabs == 'Gene Input')
-        {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input cpgs
-      else if(input$tabs == 'CpG Input')
-        {
-        annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input a region
-      else if(input$tabs == 'Region Input')
-        {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                             Start = input$start, End = input$end, Chr = input$chr, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-        }
-      
-          
+        
+        output$annoplot <-renderPlot(
+          {
+            #return empty when no inputs
+            if (input_value$input_value  == FALSE) return()
+            #output a plot when input a gene
+            else if(input$tabs == 'Gene Input')
+              {
+              annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
+                                   Chr = NULL, Start = NULL, End = NULL, 
+                                   Tissue_type = input$checkbox_tissue,
+                                   Sex_type = input$checkbox_sex,
+                                   Trimester_type = input$checkbox_trimester,
+                                   plot_heights = c(input$condensed_plot_height_1,
+                                                    input$condensed_plot_height_2,
+                                                    input$condensed_plot_height_3,
+                                                    input$condensed_plot_height_4))
+            }
+            #output a plot when input cpgs
+            else if(input$tabs == 'CpG Input')
+              {
+              annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
+                                   Chr = NULL, Start = NULL, End = NULL, 
+                                   Tissue_type = input$checkbox_tissue,
+                                   Sex_type = input$checkbox_sex,
+                                   Trimester_type = input$checkbox_trimester,
+                                   plot_heights = c(input$condensed_plot_height_1,
+                                                    input$condensed_plot_height_2,
+                                                    input$condensed_plot_height_3,
+                                                    input$condensed_plot_height_4))
+            }
+            #output a plot when input a region
+            else if(input$tabs == 'Region Input')
+              {
+              annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                                   Start = input$start, End = input$end, Chr = input$chr, 
+                                   Tissue_type = input$checkbox_tissue,
+                                   Sex_type = input$checkbox_sex,
+                                   Trimester_type = input$checkbox_trimester,
+                                   plot_heights = c(input$condensed_plot_height_1,
+                                                    input$condensed_plot_height_2,
+                                                    input$condensed_plot_height_3,
+                                                    input$condensed_plot_height_4))
+              }
+            
+                
+            }
+          )
       }
     )
     ############  annoplot output: choose cpg number (given a gene input) ############
