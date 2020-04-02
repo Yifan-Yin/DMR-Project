@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(egg)
 library(here)
+library(patchwork)
 ```
 
 # Setup
@@ -135,16 +136,20 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
 # 2. Main gene/cpg plot with tracks
 
 This is the middle plot with all the annotation tracks.
+
 ```{r}
 annoPlot_with_tracks <- function(cpg_name = NULL, 
                                  gene_name = NULL, 
-                                 Chr = NULL, Start = NULL, 
-                                 End = NULL, cpg_number = 500, 
-                                 first_cpg = NULL, end_cpg = NULL, 
+                                 Chr = NULL, 
+                                 Start = NULL, 
+                                 End = NULL, 
+                                 cpg_number = 500, 
+                                 first_cpg = NULL, 
+                                 end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
                                  Sex_type = c('F', 'M'),
-                                 Trimester_type = c('Third', 'First'),
-                                 plot_heights = c(36, 9, 6, 5)){
+                                 Trimester_type = 'Third',
+                                 plot_heights = c(10, 5, 5, 5)){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -256,12 +261,17 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       
       filter(Sex %in% Sex_type,
              Trimester %in% Trimester_type) %>%
+      #calculate global mean for each cpg
+      group_by(Trimester, cpg) %>%
+      mutate(mean_cpg = mean(beta)) %>%
       
       # calculate mean and sd for each cpg for each group
       group_by(Tissue, Trimester, cpg) %>%
       summarize(mean = mean(beta),
-                sd = sd(beta)) %>%
-      mutate(lower = mean-sd, upper = mean+sd) %>%
+                sd = sd(beta),
+                mean_cpg = unique(mean_cpg)) %>%
+      mutate(lower = mean-sd, upper = mean+sd,
+             mean_diff = mean-mean_cpg) %>%
       
       # add cpg info
       left_join(anno_gene, by = 'cpg') %>%
@@ -273,13 +283,43 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
              Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
       filter(Tissue %in% Tissue_type)
   
-  ##### GENERATE INDIVIDUAL PLOT TRACKS #####
-  font_size <- 14
-  point_size <- 3
-  line_size <- 1.25
-  
-  # Generate  methylation track
-  p1 <- betas_gene %>%
+    ##### GENERATE INDIVIDUAL PLOT TRACKS #####
+    # common theme settings across each plot
+    
+    font_size <- 14
+    point_size <- 3
+    line_size <- 1.25
+    
+    theme_custom <- function(base_size = font_size){
+      theme_bw(base_size = base_size) %+replace%
+        theme(
+          axis.text.x = element_blank(), 
+          #axis.text.x = element_text(angle = 90),
+          axis.text.y = element_text(size = font_size-2, hjust = 1),
+          axis.ticks.x = element_blank(),
+          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
+          
+          legend.text = element_text(size = font_size),
+          legend.box = "horizontal",
+          legend.position = 'right',
+          legend.justification = 'left',
+          
+          panel.grid.minor.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          
+          panel.spacing.y = unit(0.1, 'cm'),
+          
+          strip.background = element_blank(),
+          strip.text = element_text(face = 'bold', hjust = 0,
+                                    margin = margin(b = 4)),
+          plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+    }
+    
+  ########## Generate  methylation track
+  # Term
+  p1a <- betas_gene %>%
+    filter(Trimester == Trimester_type) %>%
+    
     ggplot() +
     
     geom_blank(aes(x = cpg)) +
@@ -295,104 +335,49 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                    show.legend = FALSE) +
     geom_point(alpha = 0.75, aes(x = cpg, y = mean, color = Tissue), size = point_size) +
     
-    # we want to facet by trimester
-    facet_wrap(vars(Trimester), ncol = 1, labeller = label_both, scales = 'free') +
+    # add trimester subtitle
+    facet_wrap(vars(Trimester),
+               ncol = 1, 
+               labeller = labeller(Trimester = c('First' = 'DNA methylation, First Trimester', 
+                                                 'Third' = 'DNA methylation, Term')),
+               scales = 'free') +
     
     # cosmetics
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_blank(), 
-          #axis.text.x = element_text(angle = 90),
-      axis.text.y = element_text(size = 12),
-          axis.ticks.x = element_blank(),
-          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
-          
-          legend.text = element_text(size = 14),
-          
-          panel.grid.minor.y = element_blank(),
-          panel.grid.major.y = element_blank(),
-          
-          panel.spacing.y = unit(0.1, 'cm'),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),) +
+    theme_custom() +
     scale_y_continuous(limits = c(0, 100), 
                        expand = c(0, 0), 
                        breaks = c(0, 50, 100),
                        labels = function(x)paste0(x, '%')) +
     scale_x_discrete(expand = c(0,0.5))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
-                       guide = guide_legend(override.aes = list(size = 4)),
+                       guide = guide_legend(ncol = 1, override.aes = list(size = 4)),
                        labels = function(x)gsub(' cs', '', x)) +
-    labs(y = 'DNA\nmethylation', 
+    labs(y = '', 
          x = '', 
 
-         color = '', 
-         title = title)
-
+         color = '')
+  
+  # difference fro mean
+  p1b <- betas_gene %>%
+    filter(Trimester == Trimester_type) %>%
+    ggplot(aes(x = cpg, color = Tissue, fill = Tissue, y = mean_diff)) +
     
-  p_dmc <- betas_gene %>%
-    
-    # tidy data
-    select(cpg, `First_Endothelial cs`:`Third_Trophoblasts cs`) %>%
-    distinct() %>%
-    pivot_longer(cols = -cpg,
-                 names_to = 'Group',
-                 values_to = 'Significant') %>%
-    mutate(facet_title = 'Differential methylation by cell type') %>%
-    separate(Group, c('Trimester', 'Tissue'), '_') %>%
-    
-     # convert axes to numeric for geom_path to work
-    mutate(cpg_num = as.numeric(cpg),
-           Tissue_num = as.numeric(as.factor(Tissue)),
-           
-           # Add tissue-specific color when significant
-           Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
-    filter(Trimester %in% Trimester_type) %>%
-    
-    {
-      ggplot(data = ., aes(y = Significant_num, color = Tissue)) +
-        geom_blank(aes(x = cpg)) +
-        geom_point(data = . %>% 
-                     filter(!is.na(Significant_num)), size = point_size,
-                   aes(x =cpg_num)) +
-        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1, aes(x =cpg_num)) +
-        facet_grid(rows = vars(Trimester),
-                   cols = vars(facet_title),
-                   labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
-                   switch = 'y') +
-        theme_bw(base_size = font_size) +
-        theme(axis.text.x = element_blank(),
-              panel.grid = element_blank(),
-              panel.background = element_rect(fill = '#f7f7f7'),
-              
-              #axis.text.x = element_text(angle = 90, vjust = 0),
-              axis.ticks = element_blank(),
-              axis.text.y = element_text(vjust = 0.5),
-              
-              legend.text = element_text(size = 14),
-              
-              plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-              plot.background = element_rect(fill = '#f7f7f7'),
-              
-              strip.background = element_blank(),
-              strip.text.y = element_text(face = 'bold', vjust = 0.5, hjust = 0.5, angle = 180),
-              strip.text.x = element_text(face = 'bold', hjust = 0),
-              strip.placement = 'outside') +
-        scale_color_manual(values = color_code_tissue[unique(pDat$Tissue)],
-                          na.value = '#f7f7f7',
-                          guide = 'none') +
-        scale_y_continuous(expand = c(0.15,0.15),
-                           breaks = c(1, 2, 3, 4, 5), 
-                           labels = pDat$Tissue %>% 
-                             as.factor() %>% 
-                             levels() %>%
-                             gsub(' cs', '', .)) +
-        scale_x_discrete(expand = c(0,0.5)) +
-        labs(x = '', y = '')
-      
-    }
+    geom_hline(yintercept = 0, color = 'black', size = line_size*0.75) +
+    geom_point(size = point_size/2, show.legend = FALSE) +
+    geom_line(aes(group = Tissue)) +
+    facet_wrap(vars(Trimester),
+               ncol = 1, 
+               labeller = labeller(Trimester = c('First' = 'Difference from CpG mean', 
+                                                 'Third' = 'Difference from CpG mean'))) +
+    theme_custom() +
+    theme(panel.grid.minor.y = element_blank()) +
+    scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
+                       guide = guide_none(),
+                       labels = function(x)gsub(' cs', '', x)) +
+    scale_y_continuous(labels = function(x)paste0(x, '%'),
+                       breaks = c(-100, -50, 0, 50, 100),
+                       limits = c(-100, 100))+
+    labs(x = '', y = '') 
   
   # plot cpg annotations
   p2 <- betas_gene %>% 
@@ -429,17 +414,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     geom_tile(color = 'white') +
     guides(fill=guide_legend(ncol=2, override.aes = list(colour = 'white'))) +
     facet_wrap(vars(group), ncol = 2) +
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text.y = element_text(vjust = 0.5),
-          
-          legend.text = element_text(size = 14),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0)) +
+    theme_custom() +
     scale_fill_manual(values = c('Present' = '#cccccc', 'Absent' = '#f7f7f7', 
                                  ' ' = 'white', '  ' = 'white',
                                  'sea' = '#ffffcc', 'shelf' = '#a1dab4', 'shore' = '#41b6c4',
@@ -522,19 +497,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     geom_tile(color = 'white', alpha = 0.6) +
     facet_wrap(vars(group), ncol = 1) +
     guides(fill=guide_legend(ncol=1, override.aes = list(alpha=0.7, color = 'white'))) +
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
-          axis.text.y = element_text(vjust = 0.5),
-          axis.ticks = element_blank(),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-          
-          legend.text = element_text(size = 14),
-          
-          panel.grid = element_blank(),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0)) +
+    theme_custom()+
+    theme(axis.text.x = element_text(angle = 90)) +
     scale_fill_brewer(na.value = '#f7f7f7', breaks = c('1to5kb', 'promoter', '5UTR', 'exon', 
                                                         'intron', 'intronexonboundary', '3UTR',
                                                         'intergenic'),
@@ -546,34 +510,17 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     labs(x = '', y = '', fill = '')
   
   # remove cpg names iftoo many cpgs are displayed
-  if (nrow(anno_gene > 50)) {
+  if (nrow(anno_gene) > 100) {
     p3 <- p3 + theme(axis.text.x = element_blank())
     
     }
-  # the size of each plot depends on the number of unique transcripts
-  # More transcripts means a longer transcript track
-  # so the plot height depends on the number of transcripts
-  
-  # number of transcripts
-  n_trans <- betas_gene$genes_tx_id %>% str_split(', ') %>% unlist() %>% unique %>% length()
-  
-  
-  # maximum size of transcript plot is "25"
-  n_trans <- min(c(n_trans, 25))
-  
-  # size of p1
-  p1_h <- 40
   
   # combine tracks plot
-  if (is.null(plot_heights)){
-    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
-  } else {
-    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = plot_heights)
-  }
-  
-  
-  }
-
+  (p1a + plot_layout(guides = 'keep')) / 
+    p1b / 
+    p2 / 
+    p3 + plot_layout(heights =c(plot_heights))
+}
 ```
 
 # 3. CpG boxplots

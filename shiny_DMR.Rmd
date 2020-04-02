@@ -89,21 +89,22 @@ ui <- fluidPage(
       
       tags$h4(
         tags$strong('Customize plot')),
+      radioButtons('checkbox_trimester',
+                   'Include samples (trimester)',
+                   setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
+                   selected = 'Third'),
       checkboxGroupInput('checkbox_tissue',
-                         'Show methylation for:',
+                         'Include samples (cell type):',
                          setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
                          selected = unique(pDat$Tissue)),
       
       
       checkboxGroupInput('checkbox_sex',
-                         'Include:',
+                         'Include samples (sex):',
                          setNames(c('F', 'M'), c('Female', 'Male')),
                          selected = unique(pDat$Sex)),
       
-      checkboxGroupInput('checkbox_trimester',
-                         'Include:',
-                         setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
-                         selected = unique(pDat$Trimester)),
+      
       
       sliderInput('range_cpg', 
                   'Select number of CpGs to plot (only applies to Condensed View):',
@@ -144,27 +145,27 @@ ui <- fluidPage(
                          3, 
                          sliderInput(
                            'condensed_plot_height_1',
-                           'Methylation',
-                           min = 0, max = 50, value = c(35), step = 1)
+                           'DNA methylation',
+                           min = 0, max = 25, value = c(10), step = 1)
                          ),
                        column(
                          3,
                          sliderInput(
                            'condensed_plot_height_2',
-                           'Differential Methylation',
-                           min = 0, max = 50, value = c(9), step = 1)),
+                           'Difference from CpG mean',
+                           min = 0, max = 25, value = c(5), step = 1)),
                        column(
                          3, 
                          sliderInput(
                            'condensed_plot_height_3',
-                           'Genomic features',
-                           min = 0, max = 50, value = c(6), step = 1)),
+                           'Annotations',
+                           min = 0, max = 25, value = c(5), step = 1)),
                        column(
                          3, 
                          sliderInput(
                            'condensed_plot_height_4',
                            'Transcripts',
-                           min = 0, max = 50, value = c(5), step = 1)
+                           min = 0, max = 25, value = c(5), step = 1)
                        )
                      )
                    ))
@@ -172,7 +173,7 @@ ui <- fluidPage(
                  
                  br(),
                  textOutput('text'),
-                 plotOutput('annoplot', height = 1100)),
+                 plotOutput('annoplot', height = 1000)),
         
         tabPanel("Expanded View",
                  
@@ -206,7 +207,7 @@ ui <- fluidPage(
                  
                  
                  br(),
-                 plotOutput('expanded', height = 900)),
+                 plotOutput('expanded', height = 1000)),
         
         tabPanel("CpG Boxplots",
                  p('Show boxplots for specific CpGs:'),
