@@ -90,7 +90,7 @@ ui <- fluidPage(
       tags$h4(
         tags$strong('Customize plot')),
       radioButtons('checkbox_trimester',
-                   'Include samples (trimester)',
+                   'Include samples (trimester):',
                    setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
                    selected = 'Third'),
       checkboxGroupInput('checkbox_tissue',
@@ -173,7 +173,7 @@ ui <- fluidPage(
                  
                  br(),
                  textOutput('text'),
-                 plotOutput('annoplot', height = 1000)),
+                 plotOutput('annoplot', height = 900)),
         
         tabPanel("Expanded View",
                  
@@ -191,7 +191,7 @@ ui <- fluidPage(
                          column(
                            6,
                            sliderInput(
-                             'expanded_plot_height_1', 'Methylation',
+                             'expanded_plot_height_1', 'DNA methylation',
                              min = 1, max = 10, value = c(3), step = 1),
                          ),
                          column(
@@ -207,7 +207,7 @@ ui <- fluidPage(
                  
                  
                  br(),
-                 plotOutput('expanded', height = 1000)),
+                 plotOutput('expanded', height = 900)),
         
         tabPanel("CpG Boxplots",
                  p('Show boxplots for specific CpGs:'),
