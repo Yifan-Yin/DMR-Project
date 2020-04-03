@@ -353,8 +353,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                        guide = guide_legend(ncol = 1, override.aes = list(size = 4)),
                        labels = function(x)gsub(' cs', '', x)) +
     labs(y = '', 
-         x = '', 
-
+         x = '',
+         title = title,
          color = '')
   
   # difference fro mean
@@ -631,7 +631,7 @@ expanded_view <- function(gene_name = NULL,
                 
                 highlight_region = NULL, # a df with start end columns, indicating regions to highlight
                 
-                trimester = c('Third', 'First'), # can be Third, First, or Both
+                trimester = 'Third', # can be Third, First, or Both
                 sex = c('F', 'M'), # can be Male, Female, or Both
                 tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
                            "Trophoblasts cs", "Stromal cs"),
