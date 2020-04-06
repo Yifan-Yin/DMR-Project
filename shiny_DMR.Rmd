@@ -108,7 +108,7 @@ ui <- fluidPage(
       
       sliderInput('range_cpg', 
                   'Select number of CpGs to plot (only applies to Condensed View):',
-                  min = 1, max = 500, value = c(500)),
+                  min = 1, max = 500, value = 500),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
@@ -435,15 +435,16 @@ server <- function(input, output, session) {
           )
       }
     )
-    ############  annoplot output: choose cpg number (given a gene input) ############
+    ############  annoplot output: choose cpg number############
     #store cpg number into reactive value
     cpg_number <- reactiveValues(cpg_number = 250)
     #get the cpg number input
-    observeEvent(input$submit_cpg_number, {cpg_number$cpg_number <- input$cpg_number_input})
-    #reset cpg number into default(250) when select another gene
+    observeEvent(input$submit_cpg_set, {cpg_number$cpg_number <- input$range_cpg})
+    #reset the number of cpgs to plot into default(250) when update inputs
     observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 250})
+    observeEvent(input$submit_region_input, {cpg_number$cpg_number = 250})
     #update the plot when change the cpg number to show
-    observeEvent(input$submit_cpg_number, {output$annoplot <- renderPlot(
+    observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
       if (input_value$input_value  == FALSE) return()
       else if(input$tabs == 'Gene Input')
         {
@@ -457,7 +458,6 @@ server <- function(input, output, session) {
                                               input$condensed_plot_height_2,
                                               input$condensed_plot_height_3,
                                               input$condensed_plot_height_4))
-        
       }
       #output a plot when input cpgs
       else if(input$tabs == 'CpG Input')
@@ -478,7 +478,8 @@ server <- function(input, output, session) {
         annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
                              Start = get_region_start(), 
                              End = get_region_end(), 
-                             Chr = get_region_chr(), 
+                             Chr = get_region_chr(),
+                             cpg_number = cpg_number$cpg_number, 
                              Tissue_type = input$checkbox_tissue,
                              Sex_type = input$checkbox_sex,
                              Trimester_type = input$checkbox_trimester,
@@ -489,123 +490,6 @@ server <- function(input, output, session) {
         }
       )
     })
-    ############  annoplot output: choose cpg number (given a region input) ############
-    #store cpg number into reactive value
-    cpg_number_region <- reactiveValues(cpg_number = 250)
-    #get the cpg number input
-    observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <-
-      input$cpg_number_input_region})
-    #reset cpg number into default(50) when select another gene
-    observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 250})
-    #update the plot when change the cpg number to show
-    observeEvent(input$submit_cpg_number_region, {output$annoplot <- renderPlot(
-      if (input_value$input_value  == FALSE) return()
-      else if(input$tabs == 'Gene Input')
-        {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(),
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-        
-      }
-      #output a plot when input cpgs
-      else if(input$tabs == 'CpG Input')
-        {
-        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input a region
-      else if(input$tabs == 'Region Input')
-        {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                             Start = get_region_start(), 
-                             End = get_region_end(), 
-                             Chr = get_region_chr(), 
-                             cpg_number = cpg_number_region$cpg_number, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-        }
-      )
-    })
-    
-    ############  annoplot output: choose a set of cpg (given a gene input)############
-    #store cpg_start and cpg_end into reactive value
-    cpg_start <- reactiveValues(cpg_start = 1)
-    cpg_end <- reactiveValues(cpg_start = 500)
-    #get the cpg set input
-    observeEvent(input$submit_cpg_set, {cpg_start$cpg_start <- input$range_cpg[1]
-                                        cpg_end$cpg_end <- input$range_cpg[2]})
-    #reset cpg set when select another gene
-    observeEvent(input$submit_gene_input, {cpg_start$cpg_start = 1
-                                           cpg_end$cpg_end = 500})
-    #update the plot when change the cpg number to show
-    observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
-      if (input_value$input_value  == FALSE) return()
-      else if(input$tabs == 'Gene Input')
-        {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-        
-      }
-      #output a plot when input cpgs
-      else if(input$tabs == 'CpG Input')
-        {
-        annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input a region
-      else if(input$tabs == 'Region Input')
-        {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                             Start = get_region_start(), 
-                             End = get_region_end(), 
-                             Chr = get_region_chr(), 
-                             first_cpg = cpg_start$cpg_start, 
-                             end_cpg = cpg_end$cpg_end, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-        }
-      )
-    })
-    
-    
     
     ############  Expanded view output ############
     ############  (given a gene input) ############
@@ -624,7 +508,7 @@ server <- function(input, output, session) {
                 end_extend = 2500,   # how far to extend right
                 show_transcript_gene = TRUE, # show transcripts associated gene symbol
                 breaks_width = 15000, # determines the spacing of x axis breaks
-                trimester = input$checkbox_trimest er, # can be Third, First, or Both
+                trimester = input$checkbox_trimester, # can be Third, First, or Both
                 sex = input$checkbox_sex, # can be Male, Female, or Both
                 tissue = input$checkbox_tissue,
                 plot_sizes = c(input$expanded_plot_height_1,
