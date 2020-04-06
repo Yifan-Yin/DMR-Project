@@ -192,7 +192,7 @@ ui <- fluidPage(
                            6,
                            sliderInput(
                              'expanded_plot_height_1', 'DNA methylation',
-                             min = 1, max = 10, value = c(3), step = 1),
+                             min = 1, max = 10, value = c(3), step = 1)
                          ),
                          column(
                            6,
@@ -267,9 +267,17 @@ server <- function(input, output, session) {
     updateSelectizeInput(session = session, inputId = 'chr',
                          choices = chr$value, selected = '', server = TRUE)
     
-    #get cpg sites related to the selected gene
+    #get the inputs and store as reactive values 
+    get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
+    get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
+    get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
+    get_region_start<- eventReactive(input$submit_region_input, {input$start})
+    get_region_end<- eventReactive(input$submit_region_input, {input$end})
+    
+    #get cpg sites related to the selected gene and store as reactive values
     cpg_related_to_gene <- reactive(find_cpg_ids(get_gene_input()))
     cpg_related_to_region <- reactive(find_cpg_from_region(Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()))
+    
     #searching list (cpg sites related to selected gene)
     observe(
       { if(input$tabs == 'Gene Input')
@@ -290,8 +298,6 @@ server <- function(input, output, session) {
                              choices = get_cpg_input(), 
                              server = TRUE, 
                              selected = '')}
-        
-        
       })
     
     ############  reset button ############  
@@ -325,8 +331,8 @@ server <- function(input, output, session) {
     ############  datatable output ############
     #make an empty datatable as default
     empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
-    #datatable to show cpg annotation information 
     
+    #datatable to show cpg annotation information 
     output$dt_anno_cpg <- DT::renderDataTable({
       #output an empty datatable when no inputs
       if (input_value$input_value == FALSE)
@@ -337,7 +343,7 @@ server <- function(input, output, session) {
       isolate(if(input$tabs == 'Gene Input') {
         
         DT::datatable(
-          make_datatable(gene_name = input$gene_name, 
+          make_datatable(gene_name = get_gene_input(), 
                          cpg_name = NULL,
                          Chr = NULL, Start = NULL, End = NULL)[,input$checkbox,drop = FALSE],
           options = list(pageLength = 5),
@@ -360,7 +366,7 @@ server <- function(input, output, session) {
             DT::datatable(
               make_datatable(
                 gene_name = NULL, cpg_name = NULL,
-                Chr = input$chr, Start = input$start, End = input$end
+                Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()
                 )[,input$checkbox, drop = FALSE],
               options = list(pageLength = 5),
               selection = 'single',
@@ -373,7 +379,7 @@ server <- function(input, output, session) {
     )
     
     ############  annoplot output: default to show first 250 cpgs############
-    #gene cpg plots
+    #annotation_track plots
     observeEvent(
       c(input$submit_region_input,
         input$submit_gene_input),
@@ -386,7 +392,7 @@ server <- function(input, output, session) {
             #output a plot when input a gene
             else if(input$tabs == 'Gene Input')
               {
-              annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
+              annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
                                    Chr = NULL, Start = NULL, End = NULL, 
                                    Tissue_type = input$checkbox_tissue,
                                    Sex_type = input$checkbox_sex,
@@ -399,7 +405,7 @@ server <- function(input, output, session) {
             #output a plot when input cpgs
             else if(input$tabs == 'CpG Input')
               {
-              annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
+              annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
                                    Chr = NULL, Start = NULL, End = NULL, 
                                    Tissue_type = input$checkbox_tissue,
                                    Sex_type = input$checkbox_sex,
@@ -413,7 +419,8 @@ server <- function(input, output, session) {
             else if(input$tabs == 'Region Input')
               {
               annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                                   Start = input$start, End = input$end, Chr = input$chr, 
+                                   Start = get_region_start(), End = get_region_end(), 
+                                   Chr = get_region_chr(), 
                                    Tissue_type = input$checkbox_tissue,
                                    Sex_type = input$checkbox_sex,
                                    Trimester_type = input$checkbox_trimester,
@@ -429,18 +436,11 @@ server <- function(input, output, session) {
       }
     )
     ############  annoplot output: choose cpg number (given a gene input) ############
-    #get the input when click submit button
-    get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
-    get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
-    get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
-    get_region_start<- eventReactive(input$submit_region_input, {input$start})
-    get_region_end<- eventReactive(input$submit_region_input, {input$end})
-    
     #store cpg number into reactive value
     cpg_number <- reactiveValues(cpg_number = 250)
     #get the cpg number input
     observeEvent(input$submit_cpg_number, {cpg_number$cpg_number <- input$cpg_number_input})
-    #reset cpg number into default(50) when select another gene
+    #reset cpg number into default(250) when select another gene
     observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 250})
     #update the plot when change the cpg number to show
     observeEvent(input$submit_cpg_number, {output$annoplot <- renderPlot(
@@ -618,13 +618,13 @@ server <- function(input, output, session) {
       #output a plot when input a gene
       else if(input$tabs == 'Gene Input')
         {
-        expanded_view(gene_name = input$gene_name, 
+        expanded_view(gene_name = get_gene_input(), 
                 
                 start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
                 end_extend = 2500,   # how far to extend right
                 show_transcript_gene = TRUE, # show transcripts associated gene symbol
                 breaks_width = 15000, # determines the spacing of x axis breaks
-                trimester = input$checkbox_trimester, # can be Third, First, or Both
+                trimester = input$checkbox_trimest er, # can be Third, First, or Both
                 sex = input$checkbox_sex, # can be Male, Female, or Both
                 tissue = input$checkbox_tissue,
                 plot_sizes = c(input$expanded_plot_height_1,
