@@ -1,14 +1,15 @@
-## ----setup, include=FALSE--------------------------------------------------
+## ----setup, include=FALSE-------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE)
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 library(tidyverse)
 library(egg)
 library(here)
+library(patchwork)
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 # sample data
 pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
@@ -24,7 +25,7 @@ colors <- color_code_tissue[unique(pDat$Tissue)]
 anno_annotatr <- readRDS(here('data', 'annotation_annotatr.rds'))
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 # rename column names
 rename_columns <- function(x) {
   dplyr::rename(
@@ -47,7 +48,7 @@ rename_columns <- function(x) {
 }
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 #column names 
 column_names <- anno %>% 
   select(cpg, chr, start, end, 
@@ -57,7 +58,7 @@ column_names <- anno %>%
   names()
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 #list of genes for search list
 gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
                  unlist() %>%
@@ -70,7 +71,7 @@ cpg <- unique(anno$cpg)
 cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 #produce a datatable which shows cpg annotation
 make_datatable <- function(cpg_name = NULL, gene_name = NULL, 
                            Chr = NULL, Start = NULL, End = NULL){
@@ -105,16 +106,19 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
 
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 annoPlot_with_tracks <- function(cpg_name = NULL, 
                                  gene_name = NULL, 
-                                 Chr = NULL, Start = NULL, 
-                                 End = NULL, cpg_number = 500, 
-                                 first_cpg = NULL, end_cpg = NULL, 
+                                 Chr = NULL, 
+                                 Start = NULL, 
+                                 End = NULL, 
+                                 cpg_number = 500, 
+                                 first_cpg = NULL, 
+                                 end_cpg = NULL, 
                                  Tissue_type = unique(pDat$Tissue),
                                  Sex_type = c('F', 'M'),
-                                 Trimester_type = c('Third', 'First'),
-                                 plot_heights = c(36, 9, 6, 5)){
+                                 Trimester_type = 'Third',
+                                 plot_heights = c(10, 5, 5, 5)){
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
@@ -226,12 +230,17 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     
     filter(Sex %in% Sex_type,
            Trimester %in% Trimester_type) %>%
+    #calculate global mean for each cpg
+    group_by(Trimester, cpg) %>%
+    mutate(mean_cpg = mean(beta)) %>%
     
     # calculate mean and sd for each cpg for each group
     group_by(Tissue, Trimester, cpg) %>%
     summarize(mean = mean(beta),
-              sd = sd(beta)) %>%
-    mutate(lower = mean-sd, upper = mean+sd) %>%
+              sd = sd(beta),
+              mean_cpg = unique(mean_cpg)) %>%
+    mutate(lower = mean-sd, upper = mean+sd,
+           mean_diff = mean-mean_cpg) %>%
     
     # add cpg info
     left_join(anno_gene, by = 'cpg') %>%
@@ -244,12 +253,42 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     filter(Tissue %in% Tissue_type)
   
   ##### GENERATE INDIVIDUAL PLOT TRACKS #####
+  # common theme settings across each plot
+  
   font_size <- 14
   point_size <- 3
   line_size <- 1.25
   
-  # Generate  methylation track
-  p1 <- betas_gene %>%
+  theme_custom <- function(base_size = font_size){
+    theme_bw(base_size = base_size) %+replace%
+      theme(
+        axis.text.x = element_blank(), 
+        #axis.text.x = element_text(angle = 90),
+        axis.text.y = element_text(size = font_size-2, hjust = 1),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
+        
+        legend.text = element_text(size = font_size),
+        legend.box = "horizontal",
+        legend.position = 'right',
+        legend.justification = 'left',
+        
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        
+        panel.spacing.y = unit(0.1, 'cm'),
+        
+        strip.background = element_blank(),
+        strip.text = element_text(face = 'bold', hjust = 0,
+                                  margin = margin(b = 4)),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+  }
+  
+  ########## Generate  methylation track
+  # Term
+  p1a <- betas_gene %>%
+    filter(Trimester == Trimester_type) %>%
+    
     ggplot() +
     
     geom_blank(aes(x = cpg)) +
@@ -265,104 +304,49 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                    show.legend = FALSE) +
     geom_point(alpha = 0.75, aes(x = cpg, y = mean, color = Tissue), size = point_size) +
     
-    # we want to facet by trimester
-    facet_wrap(vars(Trimester), ncol = 1, labeller = label_both, scales = 'free') +
+    # add trimester subtitle
+    facet_wrap(vars(Trimester),
+               ncol = 1, 
+               labeller = labeller(Trimester = c('First' = 'DNA methylation, First Trimester', 
+                                                 'Third' = 'DNA methylation, Term')),
+               scales = 'free') +
     
     # cosmetics
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_blank(), 
-          #axis.text.x = element_text(angle = 90),
-          axis.text.y = element_text(size = 12),
-          axis.ticks.x = element_blank(),
-          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
-          
-          legend.text = element_text(size = 14),
-          
-          panel.grid.minor.y = element_blank(),
-          panel.grid.major.y = element_blank(),
-          
-          panel.spacing.y = unit(0.1, 'cm'),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),) +
+    theme_custom() +
     scale_y_continuous(limits = c(0, 100), 
                        expand = c(0, 0), 
                        breaks = c(0, 50, 100),
                        labels = function(x)paste0(x, '%')) +
     scale_x_discrete(expand = c(0,0.5))+
     scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
-                       guide = guide_legend(override.aes = list(size = 4)),
+                       guide = guide_legend(ncol = 1, override.aes = list(size = 4)),
                        labels = function(x)gsub(' cs', '', x)) +
-    labs(y = 'DNA\nmethylation', 
-         x = '', 
-         
-         color = '', 
-         title = title)
+    labs(y = '', 
+         x = '',
+         title = title,
+         color = '')
   
-  
-  p_dmc <- betas_gene %>%
+  # difference fro mean
+  p1b <- betas_gene %>%
+    filter(Trimester == Trimester_type) %>%
+    ggplot(aes(x = cpg, color = Tissue, fill = Tissue, y = mean_diff)) +
     
-    # tidy data
-    select(cpg, `First_Endothelial cs`:`Third_Trophoblasts cs`) %>%
-    distinct() %>%
-    pivot_longer(cols = -cpg,
-                 names_to = 'Group',
-                 values_to = 'Significant') %>%
-    mutate(facet_title = 'Differential methylation by cell type') %>%
-    separate(Group, c('Trimester', 'Tissue'), '_') %>%
-    
-    # convert axes to numeric for geom_path to work
-    mutate(cpg_num = as.numeric(cpg),
-           Tissue_num = as.numeric(as.factor(Tissue)),
-           
-           # Add tissue-specific color when significant
-           Significant_num = if_else(Significant, Tissue_num, NA_real_)) %>% 
-    filter(Trimester %in% Trimester_type) %>%
-    
-    {
-      ggplot(data = ., aes(y = Significant_num, color = Tissue)) +
-        geom_blank(aes(x = cpg)) +
-        geom_point(data = . %>% 
-                     filter(!is.na(Significant_num)), size = point_size,
-                   aes(x =cpg_num)) +
-        geom_path(na.rm = TRUE, size = line_size-0.25, alpha = 1, aes(x =cpg_num)) +
-        facet_grid(rows = vars(Trimester),
-                   cols = vars(facet_title),
-                   labeller =  labeller(Trimester = function(x)paste0('Trimester:\n', x)),
-                   switch = 'y') +
-        theme_bw(base_size = font_size) +
-        theme(axis.text.x = element_blank(),
-              panel.grid = element_blank(),
-              panel.background = element_rect(fill = '#f7f7f7'),
-              
-              #axis.text.x = element_text(angle = 90, vjust = 0),
-              axis.ticks = element_blank(),
-              axis.text.y = element_text(vjust = 0.5),
-              
-              legend.text = element_text(size = 14),
-              
-              plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-              plot.background = element_rect(fill = '#f7f7f7'),
-              
-              strip.background = element_blank(),
-              strip.text.y = element_text(face = 'bold', vjust = 0.5, hjust = 0.5, angle = 180),
-              strip.text.x = element_text(face = 'bold', hjust = 0),
-              strip.placement = 'outside') +
-        scale_color_manual(values = color_code_tissue[unique(pDat$Tissue)],
-                           na.value = '#f7f7f7',
-                           guide = 'none') +
-        scale_y_continuous(expand = c(0.15,0.15),
-                           breaks = c(1, 2, 3, 4, 5), 
-                           labels = pDat$Tissue %>% 
-                             as.factor() %>% 
-                             levels() %>%
-                             gsub(' cs', '', .)) +
-        scale_x_discrete(expand = c(0,0.5)) +
-        labs(x = '', y = '')
-      
-    }
+    geom_hline(yintercept = 0, color = 'black', size = line_size*0.75) +
+    geom_point(size = point_size/2, show.legend = FALSE) +
+    geom_line(aes(group = Tissue)) +
+    facet_wrap(vars(Trimester),
+               ncol = 1, 
+               labeller = labeller(Trimester = c('First' = 'Difference from CpG mean', 
+                                                 'Third' = 'Difference from CpG mean'))) +
+    theme_custom() +
+    theme(panel.grid.minor.y = element_blank()) +
+    scale_color_manual(values= color_code_tissue[unique(betas_gene$Tissue)],
+                       guide = guide_none(),
+                       labels = function(x)gsub(' cs', '', x)) +
+    scale_y_continuous(labels = function(x)paste0(x, '%'),
+                       breaks = c(-100, -50, 0, 50, 100),
+                       limits = c(-100, 100))+
+    labs(x = '', y = '') 
   
   # plot cpg annotations
   p2 <- betas_gene %>% 
@@ -399,17 +383,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     geom_tile(color = 'white') +
     guides(fill=guide_legend(ncol=2, override.aes = list(colour = 'white'))) +
     facet_wrap(vars(group), ncol = 2) +
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_blank(),
-          axis.ticks = element_blank(),
-          axis.text.y = element_text(vjust = 0.5),
-          
-          legend.text = element_text(size = 14),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0)) +
+    theme_custom() +
     scale_fill_manual(values = c('Present' = '#cccccc', 'Absent' = '#f7f7f7', 
                                  ' ' = 'white', '  ' = 'white',
                                  'sea' = '#ffffcc', 'shelf' = '#a1dab4', 'shore' = '#41b6c4',
@@ -492,19 +466,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     geom_tile(color = 'white', alpha = 0.6) +
     facet_wrap(vars(group), ncol = 1) +
     guides(fill=guide_legend(ncol=1, override.aes = list(alpha=0.7, color = 'white'))) +
-    theme_bw(base_size = font_size) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
-          axis.text.y = element_text(vjust = 0.5),
-          axis.ticks = element_blank(),
-          
-          plot.margin = unit(c(0, 2, 0, 2), 'pt'),
-          
-          legend.text = element_text(size = 14),
-          
-          panel.grid = element_blank(),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0)) +
+    theme_custom()+
+    theme(axis.text.x = element_text(angle = 90)) +
     scale_fill_brewer(na.value = '#f7f7f7', breaks = c('1to5kb', 'promoter', '5UTR', 'exon', 
                                                        'intron', 'intronexonboundary', '3UTR',
                                                        'intergenic'),
@@ -516,37 +479,20 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     labs(x = '', y = '', fill = '')
   
   # remove cpg names iftoo many cpgs are displayed
-  if (nrow(anno_gene > 50)) {
+  if (nrow(anno_gene) > 100) {
     p3 <- p3 + theme(axis.text.x = element_blank())
     
   }
-  # the size of each plot depends on the number of unique transcripts
-  # More transcripts means a longer transcript track
-  # so the plot height depends on the number of transcripts
-  
-  # number of transcripts
-  n_trans <- betas_gene$genes_tx_id %>% str_split(', ') %>% unlist() %>% unique %>% length()
-  
-  
-  # maximum size of transcript plot is "25"
-  n_trans <- min(c(n_trans, 25))
-  
-  # size of p1
-  p1_h <- 40
   
   # combine tracks plot
-  if (is.null(plot_heights)){
-    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = c(p1_h-(n_trans-6), 9, 6, n_trans))
-  } else {
-    ggarrange(p1, p_dmc, p2, p3, ncol = 1, heights = plot_heights)
-  }
-  
-  
+  (p1a + plot_layout(guides = 'keep')) / 
+    p1b / 
+    p2 / 
+    p3 + plot_layout(heights =c(plot_heights))
 }
 
 
-
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 find_cpg_ids <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
@@ -558,7 +504,7 @@ find_cpg_ids <- function(gene_name){
 }
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 find_cpg_from_region <- function(Chr, Start, End){
   
   cpg_name <- anno %>% 
@@ -573,7 +519,7 @@ find_cpg_from_region <- function(Chr, Start, End){
 
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 sample_info_cpg <- function(cpg_name){
   
   cpg <- betas[cpg_name,]
@@ -600,7 +546,7 @@ sample_info_cpg <- function(cpg_name){
 }
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 #boxplots which show beta values based on cell types
 boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
   
@@ -623,7 +569,7 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
 }
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 expanded_view <- function(gene_name = NULL, 
                           
                           start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
@@ -634,7 +580,7 @@ expanded_view <- function(gene_name = NULL,
                           
                           highlight_region = NULL, # a df with start end columns, indicating regions to highlight
                           
-                          trimester = c('Third', 'First'), # can be Third, First, or Both
+                          trimester = 'Third', # can be Third, First, or Both
                           sex = c('F', 'M'), # can be Male, Female, or Both
                           tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
                                      "Trophoblasts cs", "Stromal cs"),
@@ -681,6 +627,9 @@ expanded_view <- function(gene_name = NULL,
     left_join(anno, by = 'cpg') %>% 
     right_join(pDat, by = 'deidentified_id') 
   
+  font_size <- 14
+  point_size <- 3
+  line_size <- 1.25
   
   p1 <- b %>%
     
@@ -695,9 +644,9 @@ expanded_view <- function(gene_name = NULL,
     facet_wrap(vars(Tissue), ncol = 1, strip.position = 'left',
                labeller = labeller(Tissue = function(x)gsub(' cs', '', x))) +
     
-    theme_bw(base_size = 16) +
+    theme_bw(base_size = font_size) +
     theme(strip.background = element_blank(),
-          strip.text.y = element_text(angle = 180, hjust = 1),
+          strip.text.y.left = element_text(angle = 0, hjust = 1),
           strip.placement = 'outside',
           axis.ticks = element_blank(),
           axis.text.x = element_blank(),
@@ -706,11 +655,12 @@ expanded_view <- function(gene_name = NULL,
           panel.border = element_blank(),
           panel.grid.minor = element_blank(),
           panel.spacing = unit(0, 'lines'),
+          plot.margin = margin(t = 0, r = 0, b = 0, l = 0)
           #panel.grid = element_blank()
     ) +
     scale_y_continuous(limits = c(0,1), breaks = c(0,1), expand = c(0,0), labels = NULL) +
     scale_x_continuous(limits = c(s_extend, e_extend), expand = c(0,0), 
-                       breaks = scales::breaks_width(15000),
+                       #breaks = scales::breaks_width(15000),
                        labels = scales::number) +
     scale_color_manual(values = colors, guide = 'none') +
     labs(y = '', x = '', title = gene_name, 
@@ -724,13 +674,14 @@ expanded_view <- function(gene_name = NULL,
     ggplot(aes(x = start, xend = end)) +
     geom_segment(y= 0.5, yend = 0.5, aes(size = type, color = type))  +
     facet_wrap(~symbol + tx_id, ncol = 1, strip.position = 'left') +
-    theme_bw(base_size = 16)+
+    theme_bw(base_size = font_size)+
     theme(strip.background = element_blank(),
-          strip.text.y  = element_text(angle = 180),
+          strip.text.y.left = element_text(angle = 0, hjust = 1),
           strip.placement = 'outside',
           legend.position = 'bottom',
           plot.title =  element_blank(),
           plot.subtitle = element_blank(),
+          plot.margin = margin(t = 0, r = 0, b = 0, l = 0),
           axis.text.y = element_blank(),
           axis.ticks = element_blank(),
           axis.line = element_line(size = 0.5),
@@ -740,7 +691,9 @@ expanded_view <- function(gene_name = NULL,
           panel.grid.minor.x = element_blank(),
           panel.border = element_blank(),
           legend.key.size = unit(0.5, 'cm'),
-          legend.spacing = unit(0.25, 'cm')) +
+          legend.spacing = unit(0.25, 'cm'),
+          legend.direction = 'vertical',
+          legend.margin = margin(t = -20,0,0,0)) +
     scale_size_manual(values = c('exons' = 7, 'introns' = 1, 'intronexonboundaries' = 3,
                                  '5UTRs' = 5, '3UTRs' = 6,
                                  '1to5kb' = 2,
@@ -762,9 +715,10 @@ expanded_view <- function(gene_name = NULL,
     scale_x_continuous(limits = c(s_extend,e_extend), 
                        expand = c(0,0), 
                        labels = scales::number,
-                       breaks = scales::breaks_width(15000)) +
+                       #breaks = scales::breaks_width(15000)
+    ) +
     scale_y_continuous(expand = c(0,0)) +
-    labs(x = 'position', size = '', color = '');p2
+    labs(x = 'position', size = '', color = '')
   
   if (!is.null(highlight_region)) {
     p1 <- p1 + 
@@ -781,8 +735,7 @@ expanded_view <- function(gene_name = NULL,
   egg::ggarrange(p1,p2, ncol = 1, heights = plot_sizes) 
   
 }
-
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 #install.packages('rsconnect')
 #install.packages('shinyjs')
 library(rsconnect)
@@ -793,7 +746,7 @@ library(shinyjs)
 library(shinythemes)
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 ui <- fluidPage(
   theme = shinythemes::shinytheme("lumen"),
   
@@ -865,25 +818,26 @@ ui <- fluidPage(
       
       tags$h4(
         tags$strong('Customize plot')),
+      radioButtons('checkbox_trimester',
+                   'Include samples (trimester):',
+                   setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
+                   selected = 'Third'),
       checkboxGroupInput('checkbox_tissue',
-                         'Show methylation for:',
+                         'Include samples (cell type):',
                          setNames(unique(pDat$Tissue), gsub(' cs', '', unique(pDat$Tissue))),
                          selected = unique(pDat$Tissue)),
       
       
       checkboxGroupInput('checkbox_sex',
-                         'Include:',
+                         'Include samples (sex):',
                          setNames(c('F', 'M'), c('Female', 'Male')),
                          selected = unique(pDat$Sex)),
       
-      checkboxGroupInput('checkbox_trimester',
-                         'Include:',
-                         setNames(c('First', 'Third'), c('First Trimester', 'Third Trimester (Term)')),
-                         selected = unique(pDat$Trimester)),
+      
       
       sliderInput('range_cpg', 
                   'Select number of CpGs to plot (only applies to Condensed View):',
-                  min = 1, max = 500, value = c(500)),
+                  min = 1, max = 500, value = 500),
       actionButton('submit_cpg_set','Submit'),
       br(),
       hr(),
@@ -920,27 +874,27 @@ ui <- fluidPage(
                            3, 
                            sliderInput(
                              'condensed_plot_height_1',
-                             'Methylation',
-                             min = 0, max = 50, value = c(35), step = 1)
+                             'DNA methylation',
+                             min = 0, max = 25, value = c(10), step = 1)
                          ),
                          column(
                            3,
                            sliderInput(
                              'condensed_plot_height_2',
-                             'Differential Methylation',
-                             min = 0, max = 50, value = c(9), step = 1)),
+                             'Difference from CpG mean',
+                             min = 0, max = 25, value = c(5), step = 1)),
                          column(
                            3, 
                            sliderInput(
                              'condensed_plot_height_3',
-                             'Genomic features',
-                             min = 0, max = 50, value = c(6), step = 1)),
+                             'Annotations',
+                             min = 0, max = 25, value = c(5), step = 1)),
                          column(
                            3, 
                            sliderInput(
                              'condensed_plot_height_4',
                              'Transcripts',
-                             min = 0, max = 50, value = c(5), step = 1)
+                             min = 0, max = 25, value = c(5), step = 1)
                          )
                        )
                      ))
@@ -948,7 +902,7 @@ ui <- fluidPage(
                  
                  br(),
                  textOutput('text'),
-                 plotOutput('annoplot', height = 1100)),
+                 plotOutput('annoplot', height = 900)),
         
         tabPanel("Expanded View",
                  
@@ -966,8 +920,8 @@ ui <- fluidPage(
                          column(
                            6,
                            sliderInput(
-                             'expanded_plot_height_1', 'Methylation',
-                             min = 1, max = 10, value = c(3), step = 1),
+                             'expanded_plot_height_1', 'DNA methylation',
+                             min = 1, max = 10, value = c(3), step = 1)
                          ),
                          column(
                            6,
@@ -1026,7 +980,7 @@ ui <- fluidPage(
 )
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 server <- function(input, output, session) {
   ############  searching lists ############
   #searching list of cpgs
@@ -1040,9 +994,17 @@ server <- function(input, output, session) {
   updateSelectizeInput(session = session, inputId = 'chr',
                        choices = chr$value, selected = '', server = TRUE)
   
-  #get cpg sites related to the selected gene
+  #get the inputs and store as reactive values 
+  get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
+  get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
+  get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
+  get_region_start<- eventReactive(input$submit_region_input, {input$start})
+  get_region_end<- eventReactive(input$submit_region_input, {input$end})
+  
+  #get cpg sites related to the selected gene and store as reactive values
   cpg_related_to_gene <- reactive(find_cpg_ids(get_gene_input()))
   cpg_related_to_region <- reactive(find_cpg_from_region(Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()))
+  
   #searching list (cpg sites related to selected gene)
   observe(
     { if(input$tabs == 'Gene Input')
@@ -1063,8 +1025,6 @@ server <- function(input, output, session) {
                             choices = get_cpg_input(), 
                             server = TRUE, 
                             selected = '')}
-      
-      
     })
   
   ############  reset button ############  
@@ -1098,8 +1058,8 @@ server <- function(input, output, session) {
   ############  datatable output ############
   #make an empty datatable as default
   empty_df <- anno[0,] %>% rename_columns() %>% select(CpG:`Relation to Transcript Features`)
-  #datatable to show cpg annotation information 
   
+  #datatable to show cpg annotation information 
   output$dt_anno_cpg <- DT::renderDataTable({
     #output an empty datatable when no inputs
     if (input_value$input_value == FALSE)
@@ -1110,7 +1070,7 @@ server <- function(input, output, session) {
     isolate(if(input$tabs == 'Gene Input') {
       
       DT::datatable(
-        make_datatable(gene_name = input$gene_name, 
+        make_datatable(gene_name = get_gene_input(), 
                        cpg_name = NULL,
                        Chr = NULL, Start = NULL, End = NULL)[,input$checkbox,drop = FALSE],
         options = list(pageLength = 5),
@@ -1133,7 +1093,7 @@ server <- function(input, output, session) {
         DT::datatable(
           make_datatable(
             gene_name = NULL, cpg_name = NULL,
-            Chr = input$chr, Start = input$start, End = input$end
+            Chr = get_region_chr(), Start = get_region_start(), End = get_region_end()
           )[,input$checkbox, drop = FALSE],
           options = list(pageLength = 5),
           selection = 'single',
@@ -1146,70 +1106,72 @@ server <- function(input, output, session) {
   )
   
   ############  annoplot output: default to show first 250 cpgs############
-  #gene cpg plots
-  output$annoplot <- renderPlot(
+  #annotation_track plots
+  observeEvent(
+    c(input$submit_region_input,
+      input$submit_gene_input),
     {
-      #return empty when no inputs
-      if (input_value$input_value  == FALSE) return()
-      #output a plot when input a gene
-      else if(input$tabs == 'Gene Input')
-      {
-        annoPlot_with_tracks(cpg_name = NULL, gene_name = input$gene_name, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input cpgs
-      else if(input$tabs == 'CpG Input')
-      {
-        annoPlot_with_tracks(cpg_name = input$cpg_name, gene_name = NULL, 
-                             Chr = NULL, Start = NULL, End = NULL, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
-      #output a plot when input a region
-      else if(input$tabs == 'Region Input')
-      {
-        annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                             Start = input$start, End = input$end, Chr = input$chr, 
-                             Tissue_type = input$checkbox_tissue,
-                             Sex_type = input$checkbox_sex,
-                             Trimester_type = input$checkbox_trimester,
-                             plot_heights = c(input$condensed_plot_height_1,
-                                              input$condensed_plot_height_2,
-                                              input$condensed_plot_height_3,
-                                              input$condensed_plot_height_4))
-      }
       
-      
+      output$annoplot <-renderPlot(
+        {
+          #return empty when no inputs
+          if (input_value$input_value  == FALSE) return()
+          #output a plot when input a gene
+          else if(input$tabs == 'Gene Input')
+          {
+            annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
+                                 Chr = NULL, Start = NULL, End = NULL, 
+                                 Tissue_type = input$checkbox_tissue,
+                                 Sex_type = input$checkbox_sex,
+                                 Trimester_type = input$checkbox_trimester,
+                                 plot_heights = c(input$condensed_plot_height_1,
+                                                  input$condensed_plot_height_2,
+                                                  input$condensed_plot_height_3,
+                                                  input$condensed_plot_height_4))
+          }
+          #output a plot when input cpgs
+          else if(input$tabs == 'CpG Input')
+          {
+            annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
+                                 Chr = NULL, Start = NULL, End = NULL, 
+                                 Tissue_type = input$checkbox_tissue,
+                                 Sex_type = input$checkbox_sex,
+                                 Trimester_type = input$checkbox_trimester,
+                                 plot_heights = c(input$condensed_plot_height_1,
+                                                  input$condensed_plot_height_2,
+                                                  input$condensed_plot_height_3,
+                                                  input$condensed_plot_height_4))
+          }
+          #output a plot when input a region
+          else if(input$tabs == 'Region Input')
+          {
+            annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
+                                 Start = get_region_start(), End = get_region_end(), 
+                                 Chr = get_region_chr(), 
+                                 Tissue_type = input$checkbox_tissue,
+                                 Sex_type = input$checkbox_sex,
+                                 Trimester_type = input$checkbox_trimester,
+                                 plot_heights = c(input$condensed_plot_height_1,
+                                                  input$condensed_plot_height_2,
+                                                  input$condensed_plot_height_3,
+                                                  input$condensed_plot_height_4))
+          }
+          
+          
+        }
+      )
     }
   )
-  ############  annoplot output: choose cpg number (given a gene input) ############
-  #get the input when click submit button
-  get_gene_input <- eventReactive(input$submit_gene_input, {input$gene_name})
-  get_cpg_input <- eventReactive(input$submit_cpg_input, {input$cpg_name})
-  get_region_chr<- eventReactive(input$submit_region_input, {input$chr})
-  get_region_start<- eventReactive(input$submit_region_input, {input$start})
-  get_region_end<- eventReactive(input$submit_region_input, {input$end})
-  
+  ############  annoplot output: choose cpg number############
   #store cpg number into reactive value
   cpg_number <- reactiveValues(cpg_number = 250)
   #get the cpg number input
-  observeEvent(input$submit_cpg_number, {cpg_number$cpg_number <- input$cpg_number_input})
-  #reset cpg number into default(50) when select another gene
+  observeEvent(input$submit_cpg_set, {cpg_number$cpg_number <- input$range_cpg})
+  #reset the number of cpgs to plot into default(250) when update inputs
   observeEvent(input$submit_gene_input, {cpg_number$cpg_number = 250})
+  observeEvent(input$submit_region_input, {cpg_number$cpg_number = 250})
   #update the plot when change the cpg number to show
-  observeEvent(input$submit_cpg_number, {output$annoplot <- renderPlot(
+  observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
     if (input_value$input_value  == FALSE) return()
     else if(input$tabs == 'Gene Input')
     {
@@ -1223,7 +1185,6 @@ server <- function(input, output, session) {
                                             input$condensed_plot_height_2,
                                             input$condensed_plot_height_3,
                                             input$condensed_plot_height_4))
-      
     }
     #output a plot when input cpgs
     else if(input$tabs == 'CpG Input')
@@ -1244,7 +1205,8 @@ server <- function(input, output, session) {
       annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
                            Start = get_region_start(), 
                            End = get_region_end(), 
-                           Chr = get_region_chr(), 
+                           Chr = get_region_chr(),
+                           cpg_number = cpg_number$cpg_number, 
                            Tissue_type = input$checkbox_tissue,
                            Sex_type = input$checkbox_sex,
                            Trimester_type = input$checkbox_trimester,
@@ -1255,123 +1217,6 @@ server <- function(input, output, session) {
     }
   )
   })
-  ############  annoplot output: choose cpg number (given a region input) ############
-  #store cpg number into reactive value
-  cpg_number_region <- reactiveValues(cpg_number = 250)
-  #get the cpg number input
-  observeEvent(input$submit_cpg_number_region, {cpg_number_region$cpg_number <-
-    input$cpg_number_input_region})
-  #reset cpg number into default(50) when select another gene
-  observeEvent(input$submit_region_input, {cpg_number_region$cpg_number = 250})
-  #update the plot when change the cpg number to show
-  observeEvent(input$submit_cpg_number_region, {output$annoplot <- renderPlot(
-    if (input_value$input_value  == FALSE) return()
-    else if(input$tabs == 'Gene Input')
-    {
-      annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(),
-                           Chr = NULL, Start = NULL, End = NULL, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-      
-    }
-    #output a plot when input cpgs
-    else if(input$tabs == 'CpG Input')
-    {
-      annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
-                           Chr = NULL, Start = NULL, End = NULL, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-    }
-    #output a plot when input a region
-    else if(input$tabs == 'Region Input')
-    {
-      annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                           Start = get_region_start(), 
-                           End = get_region_end(), 
-                           Chr = get_region_chr(), 
-                           cpg_number = cpg_number_region$cpg_number, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-    }
-  )
-  })
-  
-  ############  annoplot output: choose a set of cpg (given a gene input)############
-  #store cpg_start and cpg_end into reactive value
-  cpg_start <- reactiveValues(cpg_start = 1)
-  cpg_end <- reactiveValues(cpg_start = 500)
-  #get the cpg set input
-  observeEvent(input$submit_cpg_set, {cpg_start$cpg_start <- input$range_cpg[1]
-  cpg_end$cpg_end <- input$range_cpg[2]})
-  #reset cpg set when select another gene
-  observeEvent(input$submit_gene_input, {cpg_start$cpg_start = 1
-  cpg_end$cpg_end = 500})
-  #update the plot when change the cpg number to show
-  observeEvent(input$submit_cpg_set, {output$annoplot <- renderPlot(
-    if (input_value$input_value  == FALSE) return()
-    else if(input$tabs == 'Gene Input')
-    {
-      annoPlot_with_tracks(cpg_name = NULL, gene_name = get_gene_input(), 
-                           Chr = NULL, Start = NULL, End = NULL, 
-                           first_cpg = cpg_start$cpg_start, end_cpg = cpg_end$cpg_end, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-      
-    }
-    #output a plot when input cpgs
-    else if(input$tabs == 'CpG Input')
-    {
-      annoPlot_with_tracks(cpg_name = get_cpg_input(), gene_name = NULL, 
-                           Chr = NULL, Start = NULL, End = NULL, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-    }
-    #output a plot when input a region
-    else if(input$tabs == 'Region Input')
-    {
-      annoPlot_with_tracks(cpg_name =  NULL, gene_name = NULL, 
-                           Start = get_region_start(), 
-                           End = get_region_end(), 
-                           Chr = get_region_chr(), 
-                           first_cpg = cpg_start$cpg_start, 
-                           end_cpg = cpg_end$cpg_end, 
-                           Tissue_type = input$checkbox_tissue,
-                           Sex_type = input$checkbox_sex,
-                           Trimester_type = input$checkbox_trimester,
-                           plot_heights = c(input$condensed_plot_height_1,
-                                            input$condensed_plot_height_2,
-                                            input$condensed_plot_height_3,
-                                            input$condensed_plot_height_4))
-    }
-  )
-  })
-  
-  
   
   ############  Expanded view output ############
   ############  (given a gene input) ############
@@ -1384,7 +1229,7 @@ server <- function(input, output, session) {
       #output a plot when input a gene
       else if(input$tabs == 'Gene Input')
       {
-        expanded_view(gene_name = input$gene_name, 
+        expanded_view(gene_name = get_gene_input(), 
                       
                       start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
                       end_extend = 2500,   # how far to extend right
@@ -1460,6 +1305,7 @@ server <- function(input, output, session) {
 }
 
 
-## --------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------
 shinyApp(ui, server)
+
 
