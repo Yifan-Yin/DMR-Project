@@ -528,11 +528,9 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
 }
 ```
 
-# 3. CpG boxplots
+# 3. Data wrangling functions
 
 These functions define the individual CpG plots when the user selects specific CpGs.
-
-## Data wrangling functions
 
 These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
 
@@ -565,6 +563,10 @@ find_cpg_from_region <- function(Chr, Start, End){
 
 ```
 
+
+
+# 4. individual cpg boxplot function
+
 ### Given cpgs, pull out DNA methylation from betas dataframe
 
 Given a cpg, pull the associated DNA methylation at these cpgs, along with tissue and trimester information.
@@ -596,8 +598,6 @@ sample_info_cpg <- function(cpg_name){
 }
 ```
 
-## boxplots function
-
 ```{r}
 #boxplots which show beta values based on cell types
 boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
@@ -621,7 +621,7 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
 }
 ```
 
-# 4. Expanded view (IGV)
+# 5. Expanded view (IGV)
 
 igv style plots
 
@@ -640,7 +640,7 @@ expanded_view <- function(gene_name = NULL,
                 sex = c('F', 'M'), # can be Male, Female, or Both
                 tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
                            "Trophoblasts cs", "Stromal cs"),
-                plot_sizes = c(3,1) # a 2-element numeric vector indicating the relative plot heights 
+                plot_sizes = c(3, 1) # a 2-element numeric vector indicating the relative plot heights 
                                     # of the methylation plot to the transcript plot
                 
                 # required components:
@@ -652,12 +652,6 @@ expanded_view <- function(gene_name = NULL,
                 
                 ) {
   
-  # subset to relevant samples
-  pDat <- pDat %>%
-      filter(Trimester %in% trimester,
-             Sex %in% sex,
-             Tissue %in% tissue)
-   
   # subset to cpgs associated with gene
   anno_gene_subset <- anno %>%
     filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol)) %>% 
@@ -674,26 +668,37 @@ expanded_view <- function(gene_name = NULL,
            chr == c, start > s_extend, end < e_extend)
   
   # subset betas
-  b <- betas[region_of_interest$cpg, pDat$deidentified_id] %>%
+  b <- betas[region_of_interest$cpg,] %>%
     as.data.frame() %>%
+    
+    # make long
     bind_cols(cpg = rownames(.), .) %>%
     pivot_longer(cols = -cpg,
-                 names_to = 'deidentified_id',
+                 names_to = 'id',
                  values_to = 'beta') %>%
-    left_join(anno, by = 'cpg') %>% 
-    right_join(pDat, by = 'deidentified_id') 
+  
+    # separate out mean and sd
+    separate(id, into = c('var', 'Trimester', 'Tissue'),
+             sep = '_') %>%
+    
+    # put sd and mean into columns
+    pivot_wider(id_cols = -c(var, beta),
+                names_from = var,
+                values_from = beta) %>%
+    
+    # apply filtering criteria
+    filter(Trimester %in% trimester) %>%
+  
+    
+    left_join(anno, by = 'cpg')
   
   font_size <- 14
   point_size <- 3
   line_size <- 1.25
   
+  # methylation plot
   p1 <- b %>%
-    
-    # calculate mean beta for each cpg for each tissue
-    group_by(cpg, Tissue) %>%
-    summarize(mean = mean(beta), start = dplyr::first(start)) %>%
-    
-    # plot methylation means
+
     ggplot(aes(x = start)) +
     geom_linerange(ymin = 0, aes(ymax = mean, color = Tissue)) +
     
@@ -720,7 +725,7 @@ expanded_view <- function(gene_name = NULL,
                        labels = scales::number) +
     scale_color_manual(values = colors, guide = 'none') +
     labs(y = '', x = '', title = gene_name, 
-         subtitle = paste0(c, ':', scales::comma(s), '-', scales::comma(e)));p1
+         subtitle = paste0(c, ':', scales::comma(s), '-', scales::comma(e)))
   
   p2 <- anno_annotatr %>%
     filter(seqnames == as.character(c), start > s_extend, end < e_extend,
