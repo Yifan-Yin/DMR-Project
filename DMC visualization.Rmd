@@ -26,7 +26,7 @@ library(patchwork)
 # sample data
 pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
-betas <- readRDS(here('data', 'betas.rds'))
+betas <- readRDS(here('data', 'betas_summarized.rds'))
 # annotation
 anno <- readRDS(here('data', 'annotation.rds'))
 #color code
@@ -249,27 +249,32 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
     betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
       as_tibble %>% 
-      mutate(deidentified_id = colnames(betas)) %>%
+      mutate(id = colnames(betas)) %>%
     
       # reshape into longer format
-      pivot_longer(cols = -deidentified_id,
+      pivot_longer(cols = -id,
                    names_to = 'cpg', 
                    values_to = 'beta')  %>%
       
-      # add tissue and trimester info
-      left_join(pDat %>% select(deidentified_id, Trimester, Tissue, Sex), by = 'deidentified_id') %>%
+      # separate out mean and sd
+      separate(id, into = c('var', 'Trimester', 'Tissue'),
+               sep = '_') %>%
       
-      filter(Sex %in% Sex_type,
-             Trimester %in% Trimester_type) %>%
+      # put sd and mean into columns
+      pivot_wider(id_cols = -c(var, beta),
+                  names_from = var,
+                  values_from = beta) %>%
+      
+      # apply filtering criteria
+      filter(Trimester %in% Trimester_type) %>%
+      
+      
       #calculate global mean for each cpg
       group_by(Trimester, cpg) %>%
-      mutate(mean_cpg = mean(beta)) %>%
+      mutate(mean_cpg = mean(mean)) %>%
       
-      # calculate mean and sd for each cpg for each group
-      group_by(Tissue, Trimester, cpg) %>%
-      summarize(mean = mean(beta),
-                sd = sd(beta),
-                mean_cpg = unique(mean_cpg)) %>%
+      # calculate lower, upper, and mean difference
+      ungroup() %>%
       mutate(lower = mean-sd, upper = mean+sd,
              mean_diff = mean-mean_cpg) %>%
       
