@@ -139,34 +139,13 @@ object_size(betas_sum_wide_mat) #175 MB
 object_size(betas) # down from 826 MB
 ```
 
-```{r}
-saveRDS(betas_sum_wide_mat, here('data', 'betas_summarized.rds'))
-```
-
-
-```{r eval= FALSE}
-## tester code
-betas_ts <- betas_t %>%
-  arrange(cpg, deidentified_id) %>%
-  group_by(deidentified_id) %>%
-  dplyr::slice(2)
-
-betas_ts %>%
-  group_by(cpg, Trimester, Tissue)%>%
-  summarize(mean =mean(beta),
-            sd = sd(beta))%>%
-  pivot_wider(id_cols = cpg,
-              names_from = c('Trimester', 'Tissue'),
-              values_from = c('mean', 'sd'))
-      
-```
-
 # Save data
 
 ```{r eval = FALSE}
 saveRDS(anno, here('data', 'annotation.rds'))
 saveRDS(pDat, here('data', 'pDat.rds'))
 saveRDS(betas, here('data', 'betas.rds'))
+saveRDS(betas_sum_wide_mat, here('data', 'betas_summarized.rds'))
 ```
 
 ## IGV style plots
