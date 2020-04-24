@@ -99,10 +99,10 @@ ui <- fluidPage(
                          selected = unique(pDat$Tissue)),
       
       
-      checkboxGroupInput('checkbox_sex',
-                         'Include samples (sex):',
-                         setNames(c('F', 'M'), c('Female', 'Male')),
-                         selected = unique(pDat$Sex)),
+      #checkboxGroupInput('checkbox_sex',
+      #                   'Include samples (sex):',
+      #                   setNames(c('F', 'M'), c('Female', 'Male')),
+      #                   selected = unique(pDat$Sex)),
       
       
       
@@ -207,23 +207,23 @@ ui <- fluidPage(
                  
                  
                  br(),
-                 plotOutput('expanded', height = 900)),
+                 plotOutput('expanded', height = 900))
         
-        tabPanel("CpG Boxplots",
-                 p('Show boxplots for specific CpGs:'),
+        #tabPanel("CpG Boxplots",
+        #        p('Show boxplots for specific CpGs:'),
                  
-                 #cpgs search list related to the input
-                 selectizeInput('cpg', 'CpGs related to the input',
-                                choices = NULL,
-                                multiple = TRUE),
+        #         cpgs search list related to the input
+        #         selectizeInput('cpg', 'CpGs related to the input',
+        #                        choices = NULL,
+        #                        multiple = TRUE),
                  
-                 #action button to submit and reset input
-                 actionButton('submit_cpg_gene_input', 'Submit'),
-                 actionButton('reset_cpg_gene_input','Reset'),
+        #         action button to submit and reset input
+        #         actionButton('submit_cpg_gene_input', 'Submit'),
+        #         actionButton('reset_cpg_gene_input','Reset'),
                          
-                 plotOutput('boxplot_selected_cpg')
+        #         plotOutput('boxplot_selected_cpg'))
                          
-                         )))),
+                         ))),
   
   tags$h3('Annotation Table'),
   fluidRow(
@@ -349,7 +349,7 @@ server <- function(input, output, session) {
           options = list(pageLength = 5),
           selection = 'single',
           rownames = FALSE) %>%
-          formatStyle(1, cursor = 'pointer', color = 'blue')}
+          formatStyle(1,color = 'blue')}
         
         #output a datatable when input cpgs
         else if(input$tabs == 'CpG Input') {
@@ -360,7 +360,7 @@ server <- function(input, output, session) {
             options = list(pageLength = 5),
             selection = 'single',
             rownames = FALSE) %>%
-            formatStyle(1, cursor = 'pointer', color = 'blue')
+            formatStyle(1, color = 'blue')
           } else if(input$tabs == 'Region Input') {#output a datatable when input a region
         
             DT::datatable(
@@ -372,7 +372,7 @@ server <- function(input, output, session) {
               selection = 'single',
               rownames = FALSE
               ) %>%
-              formatStyle(1, cursor = 'pointer', color = 'blue')
+              formatStyle(1, color = 'blue')
         
         })
       }
@@ -519,60 +519,60 @@ server <- function(input, output, session) {
     
     ############  boxplot output ############
     ##retrive cpg name when click the datatable
-    get_cpg_from_dt <- eventReactive(input$submit_cpg_gene_input, {input$cpg})
+    #get_cpg_from_dt <- eventReactive(input$submit_cpg_gene_input, {input$cpg})
     
     #produce a boxplot based on the selected cpg from datatable
-    observeEvent(input$dt_anno_cpg_cell_clicked, 
-                 {
-                   c_info = input$dt_anno_cpg_cell_clicked
+    #observeEvent(input$dt_anno_cpg_cell_clicked, 
+    #             {
+    #               c_info = input$dt_anno_cpg_cell_clicked
                    
-                   output$boxplot_selected_cpg <- renderPlot(
-      {
-        if (!is.null(c_info$value))
-        {
-          boxplot_selected(c_info$value, sex_type = input$checkbox_sex)
-        }
-        else if(!is.null(get_cpg_from_dt()))
-        {
-          boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
-        }
-      }
-    )
-    })
+    #               output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    if (!is.null(c_info$value))
+    #    {
+    #      boxplot_selected(c_info$value, sex_type = input$checkbox_sex)
+    #    }
+    #    else if(!is.null(get_cpg_from_dt()))
+    #    {
+    #      boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
+    #    }
+    #  }
+    #)
+    #})
     #produce a boxplot based on the selected cpg using search box
-    observeEvent(input$submit_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
-      {
-        boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
-      }
-    )})
+    #observeEvent(input$submit_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    boxplot_selected(get_cpg_from_dt(), sex_type = input$checkbox_sex)
+    #  }
+    #)})
     
     ############  reset boxplot output ############
     #reset the associated cpg inputs in search box
-    observeEvent(input$reset_cpg_gene_input, {reset('cpg')})
+    #observeEvent(input$reset_cpg_gene_input, {reset('cpg')})
     #reset the boxplot when click the reset button
-    observeEvent(input$reset_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
-      {
-        return()
-      }
-    )})
+    #observeEvent(input$reset_cpg_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    return()
+    #  }
+    #)})
     #reset the boxplot when switch between tabs
-    observeEvent(input$tabs, {output$boxplot_selected_cpg <- renderPlot(
-      {
-        return()
-      }
-    )})
+    #observeEvent(input$tabs, {output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    return()
+    #  }
+    #)})
     #reset the boxplot when change into another gene
-    observeEvent(input$submit_gene_input, {output$boxplot_selected_cpg <- renderPlot(
-      {
-        return()
-      }
-    )})
+    #observeEvent(input$submit_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    return()
+    #  }
+    #)})
     #reset the boxplot when reset gene input
-    observeEvent(input$reset_gene_input, {output$boxplot_selected_cpg <- renderPlot(
-      {
-        return()
-      }
-    )})
+    #observeEvent(input$reset_gene_input, {output$boxplot_selected_cpg <- renderPlot(
+    #  {
+    #    return()
+    #  }
+    #)})
    
     
 }
