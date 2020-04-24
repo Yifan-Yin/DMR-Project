@@ -26,7 +26,7 @@ library(patchwork)
 # sample data
 pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
-betas <- readRDS(here('data', 'betas.rds'))
+betas <- readRDS(here('data', 'betas_summarized.rds'))
 # annotation
 anno <- readRDS(here('data', 'annotation.rds'))
 #color code
@@ -53,8 +53,7 @@ rename_columns <- function(x) {
     # columns to rename
     CpG = cpg,
     Chr = chr,
-    Start = start,
-    End = end,
+    Pos = pos,
     `Relation to CpG Islands` = cpg_id,
     `Enhancers (FANTOM5)` = enhancers_id,
     `Gene Symbol` = genes_symbol,
@@ -74,7 +73,7 @@ This is for checkboxGroupInput
 ```{r}
 #column names 
 column_names <- anno %>% 
-  select(cpg, chr, start, end, 
+  select(cpg, chr, pos,
          cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
          imprinted_dmr_general, imprinted_dmr_placenta) %>%
   rename_columns() %>%
@@ -93,7 +92,7 @@ gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
 
 #pull out cpg name for search list use
 cpg <- unique(anno$cpg) 
-cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
+cpg <- tibble(value = cpg[cpg %in% rownames(betas)])
 ```
 
 # 1. datatable which shows cpg annotation
@@ -102,14 +101,14 @@ cpg <- cpg[cpg %in% rownames(betas)] %>% as_tibble()
 make_datatable <- function(cpg_name = NULL, gene_name = NULL, 
                            Chr = NULL, Start = NULL, End = NULL){
   if (!is.null(cpg_name)) { #get cpg annotation 
-    anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(start))
+    anno_cpg <- filter(anno, cpg %in% cpg_name) %>% arrange(desc(pos))
   }
   else if (!is.null(gene_name)) {
     #get cpg sites related to input genes
     cpg_name <- find_cpg_ids(gene_name)
 
     #get cpg annotation 
-    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start))
+    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(pos))
   }
   
   else if (!is.null(Chr) & !is.null(Start) & !is.null(End))
@@ -118,15 +117,10 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
   cpg_name <- find_cpg_from_region(Chr, Start, End)
   
   #get cpg annotation 
-  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(start)) 
+  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(pos)) 
   }
 
-  anno_cpg <- anno_cpg %>% 
-    select(cpg, chr, start, end, 
-           cpg_id, enhancers_id, 
-           genes_symbol, genes_tx_id, genes_id, 
-           pmd_id,
-           imprinted_dmr_general, imprinted_dmr_placenta) %>%
+  anno_cpg <- anno_cpg %>%
     rename_columns()
 }
 
@@ -159,7 +153,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     anno_gene <- anno %>%
       filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
              cpg %in% rownames(betas)) %>%
-      arrange(desc(start)) %>% slice(1:cpg_number)
+      arrange(desc(pos)) %>% slice(1:cpg_number)
     
     # stop if gene symbol is invalid
     if (nrow(anno_gene) == 0) {
@@ -172,7 +166,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     anno_gene <- anno %>%
       filter(grepl(paste0('(?<!-)\\b', gene_name, '\\b(?!-)'), genes_symbol, perl = TRUE),
              cpg %in% rownames(betas)) %>%
-      arrange(desc(start)) %>% slice(first_cpg: end_cpg)
+      arrange(desc(pos)) %>% slice(first_cpg: end_cpg)
     
     # stop if gene symbol is invalid
     if (nrow(anno_gene) == 0) {
@@ -185,7 +179,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(start))
+        arrange(chr, desc(pos))
       
       # stop if no cpgs were found
       if (nrow(anno_gene) == 0) {
@@ -205,7 +199,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
         anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(start)) %>% slice(1:cpg_number)
+        arrange(chr, desc(pos)) %>% slice(1:cpg_number)
       # stop if no cpgs were found
       if (nrow(anno_gene) == 0) {
       stop('No cpgs found in the selected region')
@@ -218,7 +212,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
         anno_gene <- anno %>%
         filter(cpg %in% cpg_name,
                cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(start)) %>% slice(first_cpg : end_cpg)
+        arrange(chr, desc(pos)) %>% slice(first_cpg : end_cpg)
       
         # stop if no cpgs were found
         if (nrow(anno_gene) == 0) {
@@ -235,8 +229,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
   title <- paste0(
     unique(anno_gene$chr), ':',
-    scales::comma(min(anno_gene$start)), '-',
-    scales::comma(max(anno_gene$start))
+    scales::comma(min(anno_gene$pos)), '-',
+    scales::comma(max(anno_gene$pos))
   )
   
   if (is.null(cpg_name)){
@@ -249,27 +243,32 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
     betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
       as_tibble %>% 
-      mutate(deidentified_id = colnames(betas)) %>%
+      mutate(id = colnames(betas)) %>%
     
       # reshape into longer format
-      pivot_longer(cols = -deidentified_id,
+      pivot_longer(cols = -id,
                    names_to = 'cpg', 
                    values_to = 'beta')  %>%
       
-      # add tissue and trimester info
-      left_join(pDat %>% select(deidentified_id, Trimester, Tissue, Sex), by = 'deidentified_id') %>%
+      # separate out mean and sd
+      separate(id, into = c('var', 'Trimester', 'Tissue'),
+               sep = '_') %>%
       
-      filter(Sex %in% Sex_type,
-             Trimester %in% Trimester_type) %>%
+      # put sd and mean into columns
+      pivot_wider(id_cols = -c(var, beta),
+                  names_from = var,
+                  values_from = beta) %>%
+      
+      # apply filtering criteria
+      filter(Trimester %in% Trimester_type) %>%
+      
+      
       #calculate global mean for each cpg
       group_by(Trimester, cpg) %>%
-      mutate(mean_cpg = mean(beta)) %>%
+      mutate(mean_cpg = mean(mean)) %>%
       
-      # calculate mean and sd for each cpg for each group
-      group_by(Tissue, Trimester, cpg) %>%
-      summarize(mean = mean(beta),
-                sd = sd(beta),
-                mean_cpg = unique(mean_cpg)) %>%
+      # calculate lower, upper, and mean difference
+      ungroup() %>%
       mutate(lower = mean-sd, upper = mean+sd,
              mean_diff = mean-mean_cpg) %>%
       
@@ -278,7 +277,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       
       # order on cpg position
       ungroup() %>%
-      arrange(desc(start)) %>%
+      arrange(desc(pos)) %>%
       mutate(cpg = factor(cpg, levels = unique(cpg)),
              Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
       filter(Tissue %in% Tissue_type)
@@ -306,6 +305,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
           
           panel.grid.minor.x = element_blank(),
           panel.grid.major.x = element_blank(),
+          panel.grid.major.y = element_blank(),
           
           panel.spacing.y = unit(0.1, 'cm'),
           
@@ -388,16 +388,16 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
            pmd = !is.na(pmd_id)) %>%
     mutate_if(is.logical, as.character) %>%
     select(cpg, enhancer, pmd, 
-           imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, start) %>%
+           imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, pos) %>%
     
     # reshape
-    pivot_longer(cols = c(-cpg, -start),
+    pivot_longer(cols = c(-cpg, -pos),
                names_to = 'cpg_element', 
                values_to = 'presence') %>%
     distinct() %>%
     
     # arrange plot orde for each track
-    arrange(desc(start)) %>%
+    arrange(desc(pos)) %>%
     mutate(cpg = factor(cpg, levels = unique(cpg)),
            cpg_element = factor(cpg_element, 
                                 levels = c('enhancer', 'pmd', 'imprinted_dmr_general',
@@ -440,7 +440,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   # 5UTR / 3UTR, exon / intron, intronexonboundary
   
   p3 <- betas_gene %>% 
-    select(cpg, end, genes_id, genes_tx_id, genes_symbol) %>%
+    select(cpg, pos, genes_id, genes_tx_id, genes_symbol) %>%
     distinct() %>%
     
     # split comma separate list and put each entry into a new row
@@ -460,14 +460,14 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     
     # calculate earliest end of each symbol
     group_by(genes_symbol) %>%
-    mutate(genes_symbol_end = min(end)) %>%
+    mutate(genes_symbol_end = min(pos)) %>%
     ungroup() %>%
     
     # reorder gene symbols by their earliest end position
     mutate(genes_symbol = fct_reorder(genes_symbol, genes_symbol_end)) %>%
     
     # reorder transcripts based on gene symbol levels and then by their end position
-    arrange(genes_symbol, end) %>%
+    arrange(genes_symbol, pos) %>%
     mutate(genes_tx_id_symbol = 
              factor(genes_tx_id_symbol, levels = unique(genes_tx_id_symbol)) %>%
              fct_explicit_na()) %>%
@@ -513,7 +513,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   if (nrow(anno_gene) > 100) {
     p3 <- p3 + theme(axis.text.x = element_blank())
     
-    }
+  }
   
   # combine tracks plot
   (p1a + plot_layout(guides = 'keep')) / 
@@ -523,11 +523,9 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
 }
 ```
 
-# 3. CpG boxplots
+# 3. Data wrangling functions
 
 These functions define the individual CpG plots when the user selects specific CpGs.
-
-## Data wrangling functions
 
 These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
 
@@ -549,7 +547,7 @@ find_cpg_ids <- function(gene_name){
 find_cpg_from_region <- function(Chr, Start, End){
   
   cpg_name <- anno %>% 
-    filter(chr == Chr, start > Start, end < End) %>%
+    filter(chr == Chr, pos > Start, pos < End) %>%
     pull(cpg) %>%
     unique()
   
@@ -559,6 +557,10 @@ find_cpg_from_region <- function(Chr, Start, End){
 }
 
 ```
+
+
+
+# 4. individual cpg boxplot function
 
 ### Given cpgs, pull out DNA methylation from betas dataframe
 
@@ -585,13 +587,11 @@ sample_info_cpg <- function(cpg_name){
     }
     cpg <- cpg %>% 
       left_join(anno, by = 'cpg') %>% 
-      arrange(desc(start)) %>% 
+      arrange(desc(pos)) %>% 
       mutate(cpg = factor(cpg, levels = unique(cpg)))
     cpg
 }
 ```
-
-## boxplots function
 
 ```{r}
 #boxplots which show beta values based on cell types
@@ -616,7 +616,7 @@ boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
 }
 ```
 
-# 4. Expanded view (IGV)
+# 5. Expanded view (IGV)
 
 igv style plots
 
@@ -635,7 +635,7 @@ expanded_view <- function(gene_name = NULL,
                 sex = c('F', 'M'), # can be Male, Female, or Both
                 tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
                            "Trophoblasts cs", "Stromal cs"),
-                plot_sizes = c(3,1) # a 2-element numeric vector indicating the relative plot heights 
+                plot_sizes = c(3, 1) # a 2-element numeric vector indicating the relative plot heights 
                                     # of the methylation plot to the transcript plot
                 
                 # required components:
@@ -647,49 +647,55 @@ expanded_view <- function(gene_name = NULL,
                 
                 ) {
   
-  # subset to relevant samples
-  pDat <- pDat %>%
-      filter(Trimester %in% trimester,
-             Sex %in% sex,
-             Tissue %in% tissue)
-   
   # subset to cpgs associated with gene
   anno_gene_subset <- anno %>%
     filter(grepl(paste0('\\<', gene_name, '\\>'), genes_symbol)) %>% 
-    dplyr::select(chr, start, end) 
+    dplyr::select(chr, pos) 
   
   c <- unique(anno_gene_subset$chr)
-  s <- min(anno_gene_subset$start) # first cpg
-  e <- max(anno_gene_subset$start) # last cpg
+  s <- min(anno_gene_subset$pos) # first cpg
+  e <- max(anno_gene_subset$pos) # last cpg
   s_extend <- s - start_extend
   e_extend <- e + end_extend
   
   region_of_interest <- anno %>%
     filter(cpg %in% rownames(betas),
-           chr == c, start > s_extend, end < e_extend)
+           chr == c, pos > s_extend, pos < e_extend)
   
   # subset betas
-  b <- betas[region_of_interest$cpg, pDat$deidentified_id] %>%
+  b <- betas[region_of_interest$cpg,] %>%
     as.data.frame() %>%
+    
+    # make long
     bind_cols(cpg = rownames(.), .) %>%
     pivot_longer(cols = -cpg,
-                 names_to = 'deidentified_id',
+                 names_to = 'id',
                  values_to = 'beta') %>%
-    left_join(anno, by = 'cpg') %>% 
-    right_join(pDat, by = 'deidentified_id') 
+  
+    # separate out mean and sd
+    separate(id, into = c('var', 'Trimester', 'Tissue'),
+             sep = '_') %>%
+    
+    # put sd and mean into columns
+    pivot_wider(id_cols = -c(var, beta),
+                names_from = var,
+                values_from = beta) %>%
+    
+    # apply filtering criteria
+    filter(Trimester %in% trimester,
+           Tissue %in% tissue) %>%
+  
+    
+    left_join(anno, by = 'cpg')
   
   font_size <- 14
   point_size <- 3
   line_size <- 1.25
   
+  # methylation plot
   p1 <- b %>%
-    
-    # calculate mean beta for each cpg for each tissue
-    group_by(cpg, Tissue) %>%
-    summarize(mean = mean(beta), start = dplyr::first(start)) %>%
-    
-    # plot methylation means
-    ggplot(aes(x = start)) +
+
+    ggplot(aes(x = pos)) +
     geom_linerange(ymin = 0, aes(ymax = mean, color = Tissue)) +
     
     facet_wrap(vars(Tissue), ncol = 1, strip.position = 'left',
@@ -715,7 +721,7 @@ expanded_view <- function(gene_name = NULL,
                        labels = scales::number) +
     scale_color_manual(values = colors, guide = 'none') +
     labs(y = '', x = '', title = gene_name, 
-         subtitle = paste0(c, ':', scales::comma(s), '-', scales::comma(e)));p1
+         subtitle = paste0(c, ':', scales::comma(s), '-', scales::comma(e)))
   
   p2 <- anno_annotatr %>%
     filter(seqnames == as.character(c), start > s_extend, end < e_extend,

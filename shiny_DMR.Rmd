@@ -263,7 +263,7 @@ server <- function(input, output, session) {
     updateSelectizeInput(session = session, inputId = 'gene_name', 
                          choices = gene$gene, selected = '',server = TRUE)
     #searching list of chromosomes
-    chr <- unique(anno$chr) %>% str_sort(numeric = TRUE) %>% as.tibble()
+    chr <- unique(anno$chr) %>% str_sort(numeric = TRUE) %>% as_tibble()
     updateSelectizeInput(session = session, inputId = 'chr',
                          choices = chr$value, selected = '', server = TRUE)
     
