@@ -128,7 +128,10 @@ betas_t <- t(betas) %>%
       left_join(pDat %>% select(deidentified_id, Trimester, Tissue, Sex), by = 'deidentified_id')
 
 saveRDS(betas_t, here::here( 'data', 'betas_t.rds')) #5 gb
+```
 
+```{r}
+betas_t <- readRDS( here::here( 'data', 'betas_t.rds')) 
 betas_sum <- betas_t %>%
   group_by(cpg, Trimester, Tissue) %>%
   summarize(mean =mean(beta),
