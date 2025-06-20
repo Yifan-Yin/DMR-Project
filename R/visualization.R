@@ -1,51 +1,3 @@
----
-title: "DMC_alltest Visualization"
-output: html_document
-editor_options: 
-  chunk_output_type: console
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-#package setup
-
-```{r}
-library(tidyverse)
-library(egg)
-library(here)
-library(patchwork)
-```
-
-# Setup
-
-## Load data
-
-```{r}
-# sample data
-pDat <- readRDS(here('data', 'pDat.rds'))
-# methylation data
-betas <- readRDS(here('data', 'betas_summarized.rds'))
-# annotation
-anno <- readRDS(here('data', 'annotation.rds'))
-#color code
-color_code <- readRDS(here::here('data', '2_3_color_code.rds'))
-color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
-colors <- color_code_tissue[unique(pDat$Tissue)]
-
-#  transcript models for exapnded view
-anno_annotatr <- readRDS(here('data', 'annotation_annotatr.rds'))
-```
-
-## Rename column names
-
-For making displayed column names more sensible.
-
-This is a function that renames column names. I apply it to the output of several functions that generate the annotation table.
-
-```{r}
-# rename column names
 rename_columns <- function(x) {
   dplyr::rename(
     x,
@@ -64,39 +16,7 @@ rename_columns <- function(x) {
     `Relation to Imprinted DMRs (placenta)` = imprinted_dmr_placenta
   )
 }
-```
 
-## Column names
-
-This is for checkboxGroupInput
-
-```{r}
-#column names 
-column_names <- anno %>% 
-  select(cpg, chr, pos,
-         cpg_id, enhancers_id, genes_symbol, genes_tx_id, genes_id, pmd_id, 
-         imprinted_dmr_general, imprinted_dmr_placenta) %>%
-  rename_columns() %>%
-  names()
-```
-
-## Generate gene/cpg search list
-
-```{r}
-#list of genes for search list
-gene <- tibble(gene = str_split(anno$genes_symbol, ', ') %>%
-                 unlist() %>%
-                 unique() %>%
-                 na.omit() %>%
-                 sort())
-
-#pull out cpg name for search list use
-cpg <- unique(anno$cpg) 
-cpg <- tibble(value = cpg[cpg %in% rownames(betas)])
-```
-
-# 1. datatable which shows cpg annotation
-```{r}
 #produce a datatable which shows cpg annotation
 make_datatable <- function(cpg_name = NULL, gene_name = NULL, 
                            Chr = NULL, Start = NULL, End = NULL){
@@ -106,32 +26,24 @@ make_datatable <- function(cpg_name = NULL, gene_name = NULL,
   else if (!is.null(gene_name)) {
     #get cpg sites related to input genes
     cpg_name <- find_cpg_ids(gene_name)
-
+    
     #get cpg annotation 
     anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(pos))
   }
   
   else if (!is.null(Chr) & !is.null(Start) & !is.null(End))
   {
-  #get cpg sites within a given region
-  cpg_name <- find_cpg_from_region(Chr, Start, End)
-  
-  #get cpg annotation 
-  anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(pos)) 
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    
+    #get cpg annotation 
+    anno_cpg <- filter(anno, cpg %in% cpg_name)%>% arrange(desc(pos)) 
   }
-
+  
   anno_cpg <- anno_cpg %>%
     rename_columns()
 }
 
-```
-
-
-# 2. Main gene/cpg plot with tracks
-
-This is the middle plot with all the annotation tracks.
-
-```{r}
 annoPlot_with_tracks <- function(cpg_name = NULL, 
                                  gene_name = NULL, 
                                  Chr = NULL, 
@@ -147,7 +59,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   
   ######## FILTER ANNOTATION TO RELEVANT CPGS, DEPENDING ON INPUT #################
   if (!is.null(gene_name) & is.null(first_cpg) & is.null(end_cpg)){
-
+    
     # If a gene symbol is supplied,
     # filter to gene in annotation
     anno_gene <- anno %>%
@@ -160,7 +72,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       stop('No cpgs found, maybe they were filtered out.')
     }
   } else if (!is.null(gene_name) & !is.null(first_cpg) & !is.null(end_cpg)){
-
+    
     # If a gene symbol is supplied,
     # filter to gene in annotation
     anno_gene <- anno %>%
@@ -173,55 +85,55 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
       stop('No cpgs found, maybe they were filtered out.')
     }
   }  else if (!is.null(cpg_name)){
-      
-      # If a cpg is provided,
-      # filter annotation to cpgs
-      anno_gene <- anno %>%
-        filter(cpg %in% cpg_name,
-               cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(pos))
-      
-      # stop if no cpgs were found
-      if (nrow(anno_gene) == 0) {
-        stop('None of the selected CpGs exist in our processed data.')
-      }
-      
-      if (length(cpg_name) < length(intersect(cpg_name, rownames(betas)))) {
-        print(paste0('The following selected CpGs do not exist in our processed data:\n', 
-                     setdiff(cpg_name, rownames(betas))))
-      }
-      
+    
+    # If a cpg is provided,
+    # filter annotation to cpgs
+    anno_gene <- anno %>%
+      filter(cpg %in% cpg_name,
+             cpg %in% rownames(betas)) %>% 
+      arrange(chr, desc(pos))
+    
+    # stop if no cpgs were found
+    if (nrow(anno_gene) == 0) {
+      stop('None of the selected CpGs exist in our processed data.')
+    }
+    
+    if (length(cpg_name) < length(intersect(cpg_name, rownames(betas)))) {
+      print(paste0('The following selected CpGs do not exist in our processed data:\n', 
+                   setdiff(cpg_name, rownames(betas))))
+    }
+    
   } else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & is.null(first_cpg) & is.null(end_cpg)){
-        
-        #get cpg sites within a given region
-        cpg_name <- find_cpg_from_region(Chr, Start, End)
-        # filter annotation to cpgs
-        anno_gene <- anno %>%
-        filter(cpg %in% cpg_name,
-               cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(pos)) %>% slice(1:cpg_number)
-      # stop if no cpgs were found
-      if (nrow(anno_gene) == 0) {
+    
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    # filter annotation to cpgs
+    anno_gene <- anno %>%
+      filter(cpg %in% cpg_name,
+             cpg %in% rownames(betas)) %>% 
+      arrange(chr, desc(pos)) %>% slice(1:cpg_number)
+    # stop if no cpgs were found
+    if (nrow(anno_gene) == 0) {
       stop('No cpgs found in the selected region')
     }
-      } else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
-        
-        #get cpg sites within a given region
-        cpg_name <- find_cpg_from_region(Chr, Start, End)
-        # filter annotation to cpgs
-        anno_gene <- anno %>%
-        filter(cpg %in% cpg_name,
-               cpg %in% rownames(betas)) %>% 
-        arrange(chr, desc(pos)) %>% slice(first_cpg : end_cpg)
-      
-        # stop if no cpgs were found
-        if (nrow(anno_gene) == 0) {
-          stop('No cpgs found in the selected region')
-        }
-        } else {
-          stop('Enter valid cpg(s) OR one specific gene.')
-          
-          }
+  } else if (!is.null(Chr) & !is.null(Start) & !is.null(End) & !is.null(first_cpg) & !is.null(end_cpg)){
+    
+    #get cpg sites within a given region
+    cpg_name <- find_cpg_from_region(Chr, Start, End)
+    # filter annotation to cpgs
+    anno_gene <- anno %>%
+      filter(cpg %in% cpg_name,
+             cpg %in% rownames(betas)) %>% 
+      arrange(chr, desc(pos)) %>% slice(first_cpg : end_cpg)
+    
+    # stop if no cpgs were found
+    if (nrow(anno_gene) == 0) {
+      stop('No cpgs found in the selected region')
+    }
+  } else {
+    stop('Enter valid cpg(s) OR one specific gene.')
+    
+  }
   
   ######## SETUP INPUT TO PLOTS ###############
   #
@@ -241,80 +153,80 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   #
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
-    betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
-      as_tibble %>% 
-      mutate(id = colnames(betas)) %>%
+  betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
+    as_tibble() %>% 
+    mutate(id = colnames(betas)) %>%
     
-      # reshape into longer format
-      pivot_longer(cols = -id,
-                   names_to = 'cpg', 
-                   values_to = 'beta')  %>%
-      
-      # separate out mean and sd
-      separate(id, into = c('var', 'Trimester', 'Tissue'),
-               sep = '_') %>%
-      
-      # put sd and mean into columns
-      pivot_wider(id_cols = -c(var, beta),
-                  names_from = var,
-                  values_from = beta) %>%
-      
-      # apply filtering criteria
-      filter(Trimester %in% Trimester_type) %>%
-      
-      
-      #calculate global mean for each cpg
-      group_by(Trimester, cpg) %>%
-      mutate(mean_cpg = mean(mean)) %>%
-      
-      # calculate lower, upper, and mean difference
-      ungroup() %>%
-      mutate(lower = mean-sd, upper = mean+sd,
-             mean_diff = mean-mean_cpg) %>%
-      
-      # add cpg info
-      left_join(anno_gene, by = 'cpg') %>%
-      
-      # order on cpg position
-      ungroup() %>%
-      arrange(desc(pos)) %>%
-      mutate(cpg = factor(cpg, levels = unique(cpg)),
-             Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
-      filter(Tissue %in% Tissue_type)
+    # reshape into longer format
+    pivot_longer(cols = -id,
+                 names_to = 'cpg', 
+                 values_to = 'beta')  %>%
+    
+    # separate out mean and sd
+    separate(id, into = c('var', 'Trimester', 'Tissue'),
+             sep = '_') %>%
+    
+    # put sd and mean into columns
+    pivot_wider(
+      names_from = var,
+      values_from = beta) %>%
+    
+    # apply filtering criteria
+    filter(Trimester %in% Trimester_type) %>%
+    
+    
+    #calculate global mean for each cpg
+    group_by(Trimester, cpg) %>%
+    mutate(mean_cpg = mean(mean)) %>%
+    
+    # calculate lower, upper, and mean difference
+    ungroup() %>%
+    mutate(lower = mean-sd, upper = mean+sd,
+           mean_diff = mean-mean_cpg) %>%
+    
+    # add cpg info
+    left_join(anno_gene, by = 'cpg') %>%
+    
+    # order on cpg position
+    ungroup() %>%
+    arrange(desc(pos)) %>%
+    mutate(cpg = factor(cpg, levels = unique(cpg)),
+           Trimester_Tissue = paste0(Trimester, ' - ', Tissue)) %>%
+    filter(Tissue %in% Tissue_type)
   
-    ##### GENERATE INDIVIDUAL PLOT TRACKS #####
-    # common theme settings across each plot
-    
-    font_size <- 14
-    point_size <- 3
-    line_size <- 1.25
-    
-    theme_custom <- function(base_size = font_size){
-      theme_bw(base_size = base_size) %+replace%
-        theme(
-          axis.text.x = element_blank(), 
-          #axis.text.x = element_text(angle = 90),
-          axis.text.y = element_text(size = font_size-2, hjust = 1),
-          axis.ticks.x = element_blank(),
-          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
-          
-          legend.text = element_text(size = font_size),
-          legend.box = "horizontal",
-          legend.position = 'right',
-          legend.justification = 'left',
-          
-          panel.grid.minor.x = element_blank(),
-          panel.grid.major.x = element_blank(),
-          panel.grid.major.y = element_blank(),
-          
-          panel.spacing.y = unit(0.1, 'cm'),
-          
-          strip.background = element_blank(),
-          strip.text = element_text(face = 'bold', hjust = 0,
-                                    margin = margin(b = 4)),
-          plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
-    }
-    
+  ##### GENERATE INDIVIDUAL PLOT TRACKS #####
+  # common theme settings across each plot
+  
+  font_size <- 14
+  point_size <- 3
+  line_size <- 1.25
+  
+  theme_custom <- function(base_size = font_size){
+    theme_bw(base_size = base_size) %+replace%
+      theme(
+        axis.text.x = element_blank(), 
+        #axis.text.x = element_text(angle = 90),
+        axis.text.y = element_text(size = font_size-2, hjust = 1),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0, size = 16),
+        
+        legend.text = element_text(size = font_size),
+        legend.box = "horizontal",
+        legend.position = 'right',
+        legend.justification = 'left',
+        
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.grid.major.y = element_blank(),
+        
+        panel.spacing.y = unit(0.1, 'cm'),
+        
+        strip.background = element_blank(),
+        strip.text = element_text(face = 'bold', hjust = 0,
+                                  margin = margin(b = 4)),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"))
+  }
+  
   ########## Generate  methylation track
   # Term
   p1a <- betas_gene %>%
@@ -384,16 +296,16 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     
     # First we need to process the annotation data
     mutate(# absent/presence for different genomic elements
-           enhancer = !is.na(enhancers_id),
-           pmd = !is.na(pmd_id)) %>%
+      enhancer = !is.na(enhancers_id),
+      pmd = !is.na(pmd_id)) %>%
     mutate_if(is.logical, as.character) %>%
     select(cpg, enhancer, pmd, 
            imprinted_dmr_general, imprinted_dmr_placenta, cpg_id, pos) %>%
     
     # reshape
     pivot_longer(cols = c(-cpg, -pos),
-               names_to = 'cpg_element', 
-               values_to = 'presence') %>%
+                 names_to = 'cpg_element', 
+                 values_to = 'presence') %>%
     distinct() %>%
     
     # arrange plot orde for each track
@@ -422,11 +334,11 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                       labels = stringr::str_to_title) +
     scale_y_discrete(expand = c(0,0),
                      labels = function(x)gsub('cpg_id', 'Relation to CpG Islands',
-                       gsub('imprinted_dmr_placenta', 'Imprinted DMR (Placenta)',
-                       gsub('imprinted_dmr_general', 'Imprinted DMR (General)',
-                       gsub('pmd', 'Placental PMD',
-                       gsub('enhancer', 'Enhancer', 
-                            x)))))) +
+                                              gsub('imprinted_dmr_placenta', 'Imprinted DMR (Placenta)',
+                                                   gsub('imprinted_dmr_general', 'Imprinted DMR (General)',
+                                                        gsub('pmd', 'Placental PMD',
+                                                             gsub('enhancer', 'Enhancer', 
+                                                                  x)))))) +
     scale_x_discrete(expand = c(0,0.2)) +
     labs(x = '', y = '', fill = '')
   
@@ -500,8 +412,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     theme_custom()+
     theme(axis.text.x = element_text(angle = 90)) +
     scale_fill_brewer(na.value = '#f7f7f7', breaks = c('1to5kb', 'promoter', '5UTR', 'exon', 
-                                                        'intron', 'intronexonboundary', '3UTR',
-                                                        'intergenic'),
+                                                       'intron', 'intronexonboundary', '3UTR',
+                                                       'intergenic'),
                       palette = 'Paired', direction = -1) +
     scale_y_discrete(expand = c(0,0), 
                      labels = function(x)(if_else(x == '(Missing)', '', x))) +
@@ -521,17 +433,8 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
     p2 / 
     p3 + plot_layout(heights =c(plot_heights))
 }
-```
 
-# 3. Data wrangling functions
-
-These functions define the individual CpG plots when the user selects specific CpGs.
-
-These set of functions help extract the relevant information given user input, and then manipulates the data into a format usable by the plotting functions.
-
-### Given a gene symbol, return associated cpg IDs
-
-```{r}
+# data wrangling -------
 find_cpg_ids <- function(gene_name){
   cpg_name <- anno %>%
     filter(cpg %in% rownames(betas),
@@ -541,9 +444,7 @@ find_cpg_ids <- function(gene_name){
   
   cpg_name
 }
-```
-### Given a region, return cpgs within it
-```{r}
+
 find_cpg_from_region <- function(Chr, Start, End){
   
   cpg_name <- anno %>% 
@@ -556,96 +457,78 @@ find_cpg_from_region <- function(Chr, Start, End){
   cpg_name
 }
 
-```
-
-
-
-# 4. individual cpg boxplot function
-
-### Given cpgs, pull out DNA methylation from betas dataframe
-
-Given a cpg, pull the associated DNA methylation at these cpgs, along with tissue and trimester information.
-
-```{r}
 sample_info_cpg <- function(cpg_name){
-    
-    cpg <- betas[cpg_name,]
-    
-    #when have only one cpg input
-    if (length(cpg_name) ==1){
+  
+  cpg <- betas[cpg_name,]
+  
+  #when have only one cpg input
+  if (length(cpg_name) ==1){
     cpg <- as.data.frame(cpg) %>% t()
     cpg <- cpg[,colnames(cpg) %in% pDat$deidentified_id]
     cpg <- as.data.frame(cpg)
     colnames(cpg) <- cpg_name
     cpg <- cpg %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
-    }
-    
-    #when have more than one cpg inputs
-    else{
+  }
+  
+  #when have more than one cpg inputs
+  else{
     cpg <- cpg[,colnames(cpg) %in% pDat$deidentified_id]
     cpg <- cpg %>% t() %>% cbind(pDat) %>% gather(cpg, betas, contains('cg'))
-    }
-    cpg <- cpg %>% 
-      left_join(anno, by = 'cpg') %>% 
-      arrange(desc(pos)) %>% 
-      mutate(cpg = factor(cpg, levels = unique(cpg)))
-    cpg
+  }
+  cpg <- cpg %>% 
+    left_join(anno, by = 'cpg') %>% 
+    arrange(desc(pos)) %>% 
+    mutate(cpg = factor(cpg, levels = unique(cpg)))
+  cpg
 }
-```
 
-```{r}
+# vis ------
 #boxplots which show beta values based on cell types
 boxplot_selected<- function(cpg_name, sex_type = c('F', 'M')){
   
-    #given cpg, get sample betas, cell type  and trimester
-    cpg <- sample_info_cpg(cpg_name) %>%
-      filter(Sex %in% sex_type)
-    
-    ggplot(cpg, aes(x=Trimester, y = betas, color = Tissue)) +
-      geom_boxplot(outlier.shape = NA)+
-      geom_jitter(alpha = 0.9, show.legend = F, 
-                  position = position_jitterdodge(jitter.width = 0.05)) +
-      facet_wrap(.~cpg)+ 
-      theme_bw(base_size = 16)+
-      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
-            axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0))+
-      labs(x = ' ', y ='DNA\nmethylation', color = '') +
-      scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
-      scale_fill_manual(values = colors) +
-      scale_color_manual(values = colors) 
+  #given cpg, get sample betas, cell type  and trimester
+  cpg <- sample_info_cpg(cpg_name) %>%
+    filter(Sex %in% sex_type)
+  
+  ggplot(cpg, aes(x=Trimester, y = betas, color = Tissue)) +
+    geom_boxplot(outlier.shape = NA)+
+    geom_jitter(alpha = 0.9, show.legend = F, 
+                position = position_jitterdodge(jitter.width = 0.05)) +
+    facet_wrap(.~cpg)+ 
+    theme_bw(base_size = 16)+
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust =1),
+          axis.title.y = element_text(angle = 0, vjust = 0.5, hjust = 0))+
+    labs(x = ' ', y ='DNA\nmethylation', color = '') +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_fill_manual(values = colors) +
+    scale_color_manual(values = colors) 
 }
-```
 
-# 5. Expanded view (IGV)
-
-igv style plots
-
-```{r}
 expanded_view <- function(gene_name = NULL, 
-                
-                start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
-                end_extend = 2500,   # how far to extend right
-                
-                show_transcript_gene = TRUE, # show transcripts associated gene symbol
-                breaks_width = 15000, # determines the spacing of x axis breaks
-                
-                highlight_region = NULL, # a df with start end columns, indicating regions to highlight
-                
-                trimester = 'Third', # can be Third, First, or Both
-                sex = c('F', 'M'), # can be Male, Female, or Both
-                tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
-                           "Trophoblasts cs", "Stromal cs"),
-                plot_sizes = c(3, 1) # a 2-element numeric vector indicating the relative plot heights 
-                                    # of the methylation plot to the transcript plot
-                
-                # required components:
-                # pDat with columns Sample_Name, Trimester, Sex, and Tissue
-                # betas_filt data.frame with column names == pDat$Sample_Name
-                # anno_annotatr data frame that is contains a column cpg, genes_symbol, chr, start, end
-                # the cpgs in anno_annotatr and betas_filt need to be exactly the same, and same order
-                # annotation data.frame that I built from annotatr, and slightly cleaned
-                
-                ) {
+                          
+                          start_extend = 2500, # how far to extend the plot left, in genomic coordinates 
+                          end_extend = 2500,   # how far to extend right
+                          
+                          show_transcript_gene = TRUE, # show transcripts associated gene symbol
+                          breaks_width = 15000, # determines the spacing of x axis breaks
+                          
+                          highlight_region = NULL, # a df with start end columns, indicating regions to highlight
+                          
+                          trimester = 'Third', # can be Third, First, or Both
+                          sex = c('F', 'M'), # can be Male, Female, or Both
+                          tissue = c("Endothelial cs", "Villi", "Hofbauer cs", 
+                                     "Trophoblasts cs", "Stromal cs"),
+                          plot_sizes = c(3, 1) # a 2-element numeric vector indicating the relative plot heights 
+                          # of the methylation plot to the transcript plot
+                          
+                          # required components:
+                          # pDat with columns Sample_Name, Trimester, Sex, and Tissue
+                          # betas_filt data.frame with column names == pDat$Sample_Name
+                          # anno_annotatr data frame that is contains a column cpg, genes_symbol, chr, start, end
+                          # the cpgs in anno_annotatr and betas_filt need to be exactly the same, and same order
+                          # annotation data.frame that I built from annotatr, and slightly cleaned
+                          
+) {
   
   # subset to cpgs associated with gene
   anno_gene_subset <- anno %>%
@@ -671,7 +554,7 @@ expanded_view <- function(gene_name = NULL,
     pivot_longer(cols = -cpg,
                  names_to = 'id',
                  values_to = 'beta') %>%
-  
+    
     # separate out mean and sd
     separate(id, into = c('var', 'Trimester', 'Tissue'),
              sep = '_') %>%
@@ -684,7 +567,7 @@ expanded_view <- function(gene_name = NULL,
     # apply filtering criteria
     filter(Trimester %in% trimester,
            Tissue %in% tissue) %>%
-  
+    
     
     left_join(anno, by = 'cpg')
   
@@ -694,7 +577,7 @@ expanded_view <- function(gene_name = NULL,
   
   # methylation plot
   p1 <- b %>%
-
+    
     ggplot(aes(x = pos)) +
     geom_linerange(ymin = 0, aes(ymax = mean, color = Tissue)) +
     
@@ -714,7 +597,7 @@ expanded_view <- function(gene_name = NULL,
           panel.spacing = unit(0, 'lines'),
           plot.margin = margin(t = 0, r = 0, b = 0, l = 0)
           #panel.grid = element_blank()
-          ) +
+    ) +
     scale_y_continuous(limits = c(0,1), breaks = c(0,1), expand = c(0,0), labels = NULL) +
     scale_x_continuous(limits = c(s_extend, e_extend), expand = c(0,0), 
                        #breaks = scales::breaks_width(15000),
@@ -761,19 +644,19 @@ expanded_view <- function(gene_name = NULL,
                                  'cpg_shores' = 4,
                                  'cpg_shelves' = 3)) +
     scale_color_manual(values = c('exons' = 'black', 'introns' = 'black', 'intronexonboundaries' = 'black',
-                                 '5UTRs' = 'grey', '3UTRs' = 'grey',
-                                 '1to5kb' = 'grey',
-                                 'promoters' = 'forestgreen',
-                                 
-                                 'cpg_inter' = 1,
-                                 'cpg_islands' = 5,
-                                 'cpg_shores' = 4,
-                                 'cpg_shelves' = 3)) +
+                                  '5UTRs' = 'grey', '3UTRs' = 'grey',
+                                  '1to5kb' = 'grey',
+                                  'promoters' = 'forestgreen',
+                                  
+                                  'cpg_inter' = 1,
+                                  'cpg_islands' = 5,
+                                  'cpg_shores' = 4,
+                                  'cpg_shelves' = 3)) +
     scale_x_continuous(limits = c(s_extend,e_extend), 
                        expand = c(0,0), 
                        labels = scales::number,
                        #breaks = scales::breaks_width(15000)
-                       ) +
+    ) +
     scale_y_continuous(expand = c(0,0)) +
     labs(x = 'position', size = '', color = '')
   
@@ -790,6 +673,5 @@ expanded_view <- function(gene_name = NULL,
                 alpha = 0.1)
   }
   egg::ggarrange(p1,p2, ncol = 1, heights = plot_sizes) 
-
+  
 }
-```
