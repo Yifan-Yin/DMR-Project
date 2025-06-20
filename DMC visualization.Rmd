@@ -242,7 +242,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
   # now we wrangle the betas/annotations/pdata information into a format usable for plotting
   #
     betas_gene <- t(betas[anno_gene$cpg,,drop = FALSE]*100) %>% 
-      as_tibble %>% 
+      as_tibble() %>% 
       mutate(id = colnames(betas)) %>%
     
       # reshape into longer format
@@ -255,7 +255,7 @@ annoPlot_with_tracks <- function(cpg_name = NULL,
                sep = '_') %>%
       
       # put sd and mean into columns
-      pivot_wider(id_cols = -c(var, beta),
+      pivot_wider(
                   names_from = var,
                   values_from = beta) %>%
       
