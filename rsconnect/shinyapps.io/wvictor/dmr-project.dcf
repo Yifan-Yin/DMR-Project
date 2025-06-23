@@ -5,8 +5,9 @@ account: wvictor
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 14969243
-bundleId: 10505231
+bundleId: 10505269
 url: https://wvictor.shinyapps.io/dmr-project/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: NEWS.md|README.md|scripts/process_data.Rmd|scripts/README|scripts/updated_plots.Rmd
