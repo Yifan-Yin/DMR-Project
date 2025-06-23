@@ -1,32 +1,34 @@
-DMR-Project
+Placental Cell Methylome Browser
 ================
 
-A *brief* introduction of what is in this repo…
+Current URL (as of 6/23/2025): 
 
-| File                  | Description                              |
-| :-------------------- | ---------------------------------------- |
-| shiny\_DMR.Rmd        | code to run app                                         |
-| updated\_plots.Rmd    | Code for updated plots. October 11, 2019 |
+- https://wvictor.shinyapps.io/dmr-project/ 
+
+Prior URLs:
+
+- (pre 2025): https://robinsonlab.shinyapps.io/Placental_Methylome_Browser/
+
 
 
 The app depends on these inputs:
 
-# sample data
+#### sample data
 `pDat <- readRDS(here('data-production', 'pDat.rds'))`
 
 `pDat` contains the sample metadata
 
-# methylation data
+#### methylation data
 
 `betas <- readRDS(here('data-production', 'betas_summarized.rds'))`
 
-# annotation
+#### annotation
 
 Victor's custom annotation for CpGs
 
 `anno <- readRDS(here('data-production', 'annotation.rds'))`
 
-# color code
+#### color code
 
 For visualizations
 
@@ -35,7 +37,8 @@ color_code <- readRDS(here::here('data-production', '2_3_color_code.rds'))
 color_code_tissue <- setNames(color_code$Colors_Tissue, color_code$label)
 colors <- color_code_tissue[unique(pDat$Tissue)]
 ```
-#  transcript models for exapnded view
+
+####  transcript models for exapnded view
 
 For expanded view need the overlapping transcript models 
 
