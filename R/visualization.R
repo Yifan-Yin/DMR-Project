@@ -560,7 +560,7 @@ expanded_view <- function(gene_name = NULL,
              sep = '_') %>%
     
     # put sd and mean into columns
-    pivot_wider(id_cols = -c(var, beta),
+    pivot_wider(
                 names_from = var,
                 values_from = beta) %>%
     
