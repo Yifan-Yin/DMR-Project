@@ -13,8 +13,6 @@ library(here)
 library(patchwork)
 
 source(here::here('R', 'visualization.R'))
-source(here::here('R', 'server.R'))
-
 # sample data
 pDat <- readRDS(here('data', 'pDat.rds'))
 # methylation data
